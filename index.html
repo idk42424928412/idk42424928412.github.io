@@ -1,18 +1,758 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Website</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>keyless() — the AI that only codes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EDEEE7;
+    --paper-2: #E6E8DE;
+    --ink: #1C1F1A;
+    --ink-soft: #5B5F53;
+    --rule: #D3D5C9;
+    --blue: #3452C8;
+    --amber: #B0702C;
+    --term-bg: #14170F;
+    --term-text: #E7E8DE;
+    --diff-add: #4C7A50;
+    --diff-del: #A6524A;
+    --maxw: 940px;
+    --gutter: 40px;
+    --radius: 20px;
+    --radius-sm: 14px;
+    --shadow: 0 20px 45px -24px rgba(28,31,26,.35);
+  }
 
-    <!-- Google AdSense Verification Code -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6723743174657432"
-     crossorigin="anonymous"></script>
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Space Grotesk', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, .mono{ font-family: 'JetBrains Mono', monospace; }
+  a{ color: inherit; }
+  ::selection{ background: var(--blue); color: var(--paper); }
+
+  .row{ max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+
+  .lined{
+    display: grid;
+    grid-template-columns: var(--gutter) 1fr;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+  .lined .num{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    opacity: .4;
+    padding-top: 6px;
+    user-select: none;
+  }
+  .lined .content{ padding-left: 20px; }
+
+  @media (max-width: 640px){
+    :root{ --gutter: 22px; }
+    .lined .num{ font-size: 10px; }
+    .lined .content{ padding-left: 12px; }
+  }
+
+  /* ---------- nav ---------- */
+
+  header{ padding: 22px 0; }
+
+  nav.row{ display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+
+  .logo{ font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 17px; letter-spacing: -0.02em; }
+  .logo .paren{ color: var(--blue); }
+
+  .navlinks{ display: flex; gap: 26px; font-size: 14px; color: var(--ink-soft); }
+  .navlinks a{ text-decoration: none; }
+  .navlinks a:hover{ color: var(--ink); }
+
+  .nav-right{ display: flex; align-items: center; gap: 12px; }
+
+  @media (max-width: 720px){ .navlinks{ display: none; } }
+
+  /* ---------- buttons ---------- */
+
+  .btn{
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 11px 20px;
+    border-radius: 999px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow); }
+
+  .btn-ghost{
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--rule);
+  }
+
+  .btn-google{
+    background: #fff;
+    color: #3c4043;
+    border: 1px solid #DADCE0;
+    font-size: 14px;
+    padding: 10px 18px 10px 10px;
+  }
+  .btn-google.small{ padding: 7px 14px 7px 7px; font-size: 13px; }
+
+  .g-badge{
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    background: conic-gradient(#4285F4 0deg 90deg, #34A853 90deg 180deg, #FBBC05 180deg 270deg, #EA4335 270deg 360deg);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .g-badge span{ color: #fff; font-weight: 700; font-size: 11px; font-family: 'Space Grotesk', sans-serif; }
+  .btn-google.small .g-badge{ width: 16px; height: 16px; }
+  .btn-google.small .g-badge span{ font-size: 9px; }
+
+  /* ---------- hero ---------- */
+
+  .hero{ padding: 68px 0 0; position: relative; }
+
+  .hero-inner{
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 52px;
+    align-items: center;
+    padding-bottom: 90px;
+  }
+
+  @media (max-width: 860px){ .hero-inner{ grid-template-columns: 1fr; } }
+
+  h1{
+    font-size: clamp(40px, 6vw, 60px);
+    line-height: 1.03;
+    letter-spacing: -0.02em;
+    margin: 0 0 20px;
+    font-weight: 700;
+  }
+
+  .lede{
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 46ch;
+    margin: 0 0 30px;
+  }
+
+  .hero-ctas{ display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .hero-note{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink-soft); }
+
+  .terminal{
+    background: var(--term-bg);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 30px 60px -28px rgba(20,23,15,.55);
+  }
+  .terminal-bar{ display: flex; gap: 7px; padding: 14px 16px; background: rgba(255,255,255,.04); }
+  .dot{ width: 9px; height: 9px; border-radius: 50%; background: rgba(231,232,222,.25); }
+  .terminal-body{
+    padding: 24px 22px 30px;
+    min-height: 230px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--term-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .prompt-line{ color: #8B9AE0; }
+  .cursor{ display: inline-block; width: 7px; height: 14px; background: var(--term-text); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity: 0; } }
+  @media (prefers-reduced-motion: reduce){ .cursor{ animation: none; } }
+
+  .wave{ display: block; width: 100%; height: 70px; margin-top: -1px; }
+
+  /* ---------- section heads ---------- */
+
+  section{ padding: 74px 0; }
+  section.tint{ background: var(--paper-2); }
+
+  .eyebrow{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--blue); margin: 0 0 10px; }
+  h2{ font-size: clamp(26px, 3.4vw, 34px); letter-spacing: -0.015em; margin: 0 0 14px; font-weight: 700; }
+  .section-lede{ color: var(--ink-soft); font-size: 15.5px; line-height: 1.65; max-width: 58ch; margin: 0 0 40px; }
+
+  /* ---------- comments block ---------- */
+
+  .comment-block{
+    background: var(--term-bg);
+    color: var(--term-text);
+    border-radius: var(--radius);
+    padding: 28px 30px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.95;
+    box-shadow: var(--shadow);
+  }
+  .comment-block .c{ color: #9AA592; }
+  .comment-block .k{ color: #8FA8F5; }
+
+  /* ---------- features (unblocked) ---------- */
+
+  .features{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+  }
+  .feature{
+    flex: 1 1 320px;
+    background: var(--paper);
+    border-radius: var(--radius);
+    padding: 28px 26px 30px;
+    box-shadow: var(--shadow);
+  }
+  .feature:nth-child(2n){ margin-top: 26px; }
+  @media (max-width: 720px){ .feature:nth-child(2n){ margin-top: 0; } }
+
+  .feature h3{ font-size: 17px; margin: 0 0 8px; font-weight: 600; }
+  .feature p{ margin: 0; color: var(--ink-soft); font-size: 14.5px; line-height: 1.6; }
+  .feature .tag{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--amber); display: block; margin-bottom: 12px; }
+
+  /* ---------- steps ---------- */
+
+  .steps{ display: flex; flex-direction: column; gap: 18px; }
+  .step{
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 18px;
+    padding: 24px 26px;
+    background: var(--paper);
+    border-radius: var(--radius-sm);
+  }
+  .step .idx{
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--blue); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px;
+  }
+  .step h3{ margin: 0 0 6px; font-size: 16.5px; font-weight: 600; }
+  .step p{ margin: 0; color: var(--ink-soft); font-size: 14.5px; line-height: 1.6; max-width: 56ch; }
+
+  /* ---------- diff compare ---------- */
+
+  .diff{ display: flex; gap: 20px; flex-wrap: wrap; }
+  .diff-col{
+    flex: 1 1 300px;
+    padding: 24px 24px 28px;
+    border-radius: var(--radius);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.9;
+  }
+  .diff-col.old{ background: var(--paper); box-shadow: var(--shadow); }
+  .diff-col.new{ background: #171B12; color: var(--term-text); box-shadow: 0 20px 45px -20px rgba(23,27,18,.6); }
+
+  .diff-label{ font-size: 12px; color: var(--ink-soft); margin-bottom: 16px; display: block; }
+  .diff-col.new .diff-label{ color: #9AA592; }
+
+  .diff-line{ display: flex; gap: 10px; }
+  .diff-line .mark{ width: 12px; flex-shrink: 0; }
+  .diff-col.old .mark{ color: var(--diff-del); }
+  .diff-col.new .mark{ color: var(--diff-add); }
+  .diff-col.old .diff-line span.txt{ color: var(--ink-soft); }
+  .diff-col.new .diff-line span.txt{ color: var(--term-text); }
+
+  /* ---------- final cta ---------- */
+
+  .final{ text-align: left; }
+  .final h2{ max-width: 20ch; }
+  .final-ctas{ display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-top: 28px; }
+
+  /* ---------- footer ---------- */
+
+  footer{ padding: 34px 0 54px; }
+  footer .row{ display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  footer .foot-note{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--ink-soft); }
+
+  /* ---------- modal ---------- */
+
+  .overlay{
+    position: fixed; inset: 0;
+    background: rgba(20,23,15,.45);
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 20px;
+    z-index: 50;
+  }
+  .overlay.open{ display: flex; }
+
+  .modal{
+    background: #fff;
+    color: #202124;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 380px;
+    padding: 28px 26px 24px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.35);
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .modal-head{ display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; text-align: center; }
+  .modal-head .g-badge{ width: 34px; height: 34px; }
+  .modal-head .g-badge span{ font-size: 17px; }
+  .modal-head h4{ margin: 0; font-size: 17px; font-weight: 600; }
+  .modal-head p{ margin: 0; font-size: 13px; color: #5f6368; }
+
+  .accounts{ display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .account{
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .account:hover{ background: #F1F3F4; }
+  .avatar{
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 600; font-size: 14px; flex-shrink: 0;
+  }
+  .account-name{ font-size: 14px; font-weight: 500; }
+  .account-email{ font-size: 12.5px; color: #5f6368; }
+
+  .modal-foot{ font-size: 11.5px; color: #5f6368; line-height: 1.5; padding-top: 10px; border-top: 1px solid #E8EAED; }
+
+  .toast{
+    position: fixed;
+    bottom: 26px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 13px 22px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-family: 'Space Grotesk', sans-serif;
+    opacity: 0;
+    transition: opacity .25s ease, transform .25s ease;
+    z-index: 60;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
 </head>
 <body>
 
-    <h1>Welcome to My Website</h1>
-    <p>This is my website content.</p>
+<header>
+  <nav class="row">
+    <div class="logo"><span class="paren">key</span>less<span class="paren">()</span></div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#compare">Compare</a>
+      <a href="#start">Docs</a>
+    </div>
+    <div class="nav-right">
+      <button class="btn btn-google small" id="googleNavBtn">
+        <span class="g-badge"><span>G</span></span> Sign in
+      </button>
+    </div>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="lined">
+    <div class="num">001</div>
+    <div class="content">
+      <div class="hero-inner">
+        <div>
+          <h1>It only<br>codes.</h1>
+          <p class="lede">Paste a prompt, get back a function — not a greeting, not a disclaimer, not "I hope this helps." No API key to paste in, no card on file, no setup screen.</p>
+          <div class="hero-ctas">
+            <button class="btn btn-google" id="googleHeroBtn">
+              <span class="g-badge"><span>G</span></span> Continue with Google
+            </button>
+            <a class="btn btn-ghost" href="#how">See how it works</a>
+          </div>
+          <p class="hero-note">// one click, no key required</p>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+          <div class="terminal-body" id="termBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <svg class="wave" viewBox="0 0 1440 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M0,20 C240,70 480,0 720,25 C960,50 1200,10 1440,35 L1440,70 L0,70 Z" fill="#E6E8DE"></path>
+  </svg>
+</section>
+
+<section id="how" class="tint">
+  <div class="lined">
+    <div class="num">002</div>
+    <div class="content">
+      <p class="eyebrow">what it won't do</p>
+      <h2>No chatting. Just the diff.</h2>
+      <p class="section-lede">Most assistants pad every answer with setup and sign-off. keyless treats those words as noise and strips them out before you ever see the response.</p>
+      <div class="comment-block">
+<span class="c">// input</span><br>
+<span class="k">fix</span> the off-by-one in this loop<br><br>
+<span class="c">// what a typical assistant sends back</span><br>
+<span class="c">"Sure! Looking at your loop, I can see the issue. Here's the corrected version with an explanation below..."</span><br><br>
+<span class="c">// what keyless sends back</span><br>
+<span class="k">for</span> (let i = 0; i &lt; arr.length; i++) { ... }
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="lined">
+    <div class="num">003</div>
+    <div class="content">
+      <p class="eyebrow">why no key</p>
+      <h2>Bring nothing but the problem.</h2>
+      <p class="section-lede">Every other wrapper asks you to hand over an OpenAI or Anthropic key before it writes a line. keyless ships with its own engine already wired in — sign in with Google and you're in.</p>
+      <div class="features">
+        <div class="feature">
+          <span class="tag">no setup</span>
+          <h3>No API key</h3>
+          <p>Not an OpenAI key, not an Anthropic key, not a credit card. Sign in and it works.</p>
+        </div>
+        <div class="feature">
+          <span class="tag">no filler</span>
+          <h3>Code only</h3>
+          <p>Ask a question, get code back. No preamble, no closing pleasantries, nothing to scroll past.</p>
+        </div>
+        <div class="feature">
+          <span class="tag">no lock-in</span>
+          <h3>Runs anywhere</h3>
+          <p>Terminal, browser, or editor plugin. Same engine, same output, wherever you paste the result.</p>
+        </div>
+        <div class="feature">
+          <span class="tag">no limits</span>
+          <h3>Every language</h3>
+          <p>Python, Rust, Go, SQL, bash — whatever the file extension says, that's what comes back.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tint">
+  <div class="lined">
+    <div class="num">004</div>
+    <div class="content">
+      <p class="eyebrow">how it works</p>
+      <h2>Three steps, no onboarding.</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="idx">1</div>
+          <div><h3>Sign in with Google</h3><p>One click. No form to fill in, no key to generate first.</p></div>
+        </div>
+        <div class="step">
+          <div class="idx">2</div>
+          <div><h3>Describe what you need</h3><p>Plain words, a broken function, or a stack trace — keyless reads intent, not just syntax.</p></div>
+        </div>
+        <div class="step">
+          <div class="idx">3</div>
+          <div><h3>Get working code back</h3><p>Formatted, runnable, and scoped to exactly what you asked for — nothing extra bolted on.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="compare">
+  <div class="lined">
+    <div class="num">005</div>
+    <div class="content">
+      <p class="eyebrow">side by side</p>
+      <h2>The same request, two answers.</h2>
+      <p class="section-lede">Ask any assistant to write a debounce function. Here's the difference in what actually lands in your editor.</p>
+      <div class="diff">
+        <div class="diff-col old">
+          <span class="diff-label">typical assistant</span>
+          <div class="diff-line"><span class="mark">−</span><span class="txt">Sure! Here's a debounce function, step by step:</span></div>
+          <div class="diff-line"><span class="mark">−</span><span class="txt">function debounce(fn, wait) { ... }</span></div>
+          <div class="diff-line"><span class="mark">−</span><span class="txt">I've added comments to explain each part.</span></div>
+          <div class="diff-line"><span class="mark">−</span><span class="txt">Let me know if you'd like it explained further!</span></div>
+        </div>
+        <div class="diff-col new">
+          <span class="diff-label">keyless</span>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">function debounce(fn, wait) {</span></div>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">&nbsp;&nbsp;let t;</span></div>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">&nbsp;&nbsp;return (...args) => {</span></div>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">&nbsp;&nbsp;&nbsp;&nbsp;clearTimeout(t);</span></div>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">&nbsp;&nbsp;&nbsp;&nbsp;t = setTimeout(() => fn(...args), wait);</span></div>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">&nbsp;&nbsp;};</span></div>
+          <div class="diff-line"><span class="mark">+</span><span class="txt">}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="start" class="tint">
+  <div class="lined">
+    <div class="num">006</div>
+    <div class="content">
+      <div class="final">
+        <p class="eyebrow">get started</p>
+        <h2>Open it. Ask it something. Get code.</h2>
+        <div class="final-ctas">
+          <button class="btn btn-google" id="googleFinalBtn">
+            <span class="g-badge"><span>G</span></span> Continue with Google
+          </button>
+          <span class="hero-note">$ or run keyless --start locally</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="row">
+    <div class="logo" style="font-size:14px;"><span class="paren">key</span>less<span class="paren">()</span></div>
+    <div class="foot-note">// no API key. no chat. just code.</div>
+  </div>
+</footer>
+
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <span class="g-badge"><span>G</span></span>
+      <h4 id="modalTitle">Signing you in…</h4>
+      <p>Complete the Google sign-in popup</p>
+    </div>
+    <div class="modal-foot">If no popup appeared, your browser may have blocked it — allow popups for this site and try again.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Signed in — opening keyless…</div>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var body = document.getElementById('termBody');
+  var promptText = '$ write a debounce function in js';
+  var codeLines = [
+    'function debounce(fn, wait) {',
+    '  let t;',
+    '  return (...args) => {',
+    '    clearTimeout(t);',
+    '    t = setTimeout(() => fn(...args), wait);',
+    '  };',
+    '}'
+  ];
+
+  function staticRender(){
+    body.innerHTML = '<span class="prompt-line">' + promptText + '</span>\n\n' + codeLines.join('\n');
+  }
+
+  if(reduce){
+    staticRender();
+  } else {
+    var full = promptText;
+    var i = 0;
+    function typePrompt(){
+      if(i <= full.length){
+        body.innerHTML = '<span class="prompt-line">' + full.slice(0, i) + '<span class="cursor"></span></span>';
+        i++;
+        setTimeout(typePrompt, 34);
+      } else {
+        setTimeout(typeCode, 380);
+      }
+    }
+    function typeCode(){
+      var lineIdx = 0, charIdx = 0, shown = [];
+      function step(){
+        if(lineIdx >= codeLines.length){
+          body.innerHTML = '<span class="prompt-line">' + full + '</span>\n\n' + shown.join('\n') + '<span class="cursor"></span>';
+          return;
+        }
+        var line = codeLines[lineIdx];
+        var partial = line.slice(0, charIdx);
+        var display = shown.concat([partial + '<span class="cursor"></span>']).join('\n');
+        body.innerHTML = '<span class="prompt-line">' + full + '</span>\n\n' + display;
+        charIdx++;
+        if(charIdx > line.length){
+          shown.push(line); lineIdx++; charIdx = 0;
+          setTimeout(step, 90);
+        } else {
+          setTimeout(step, 14);
+        }
+      }
+      step();
+    }
+    typePrompt();
+  }
+
+  var overlay = document.getElementById('overlay');
+  var toast = document.getElementById('toast');
+
+  function openModal(){ overlay.classList.add('open'); }
+  function closeModal(){ overlay.classList.remove('open'); }
+
+  overlay.addEventListener('click', function(e){
+    if(e.target === overlay){ closeModal(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape'){ closeModal(); }
+  });
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(function(){ toast.classList.remove('show'); }, 3200);
+  }
+
+  // Exposed for the deferred module script below (which loads Firebase
+  // and runs after this classic script, so these are already set by then).
+  window.openKeylessModal = openModal;
+  window.closeKeylessModal = closeModal;
+  window.showKeylessToast = showToast;
+})();
+</script>
+
+<!-- Firebase Authentication (Google sign-in) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import {
+    initializeAppCheck,
+    ReCaptchaV3Provider
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-check.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDRDioON43RCrZg0AR5glDafQON7gVZKcc",
+    authDomain: "terminalflow-89714.firebaseapp.com",
+    projectId: "terminalflow-89714",
+    storageBucket: "terminalflow-89714.firebasestorage.app",
+    messagingSenderId: "404578047302",
+    appId: "1:404578047302:web:4234ef986b129439e74147",
+    measurementId: "G-9YC4CLMXDD"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // reCAPTCHA v3 site key, used for Firebase App Check on this domain.
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider("6LdtU7gtAAAAAHMf4PTHVVHU-ZUbKM-NV5GA8Nb_"),
+      isTokenAutoRefreshEnabled: true
+    });
+  } catch (e) {
+    console.warn("App Check not initialized:", e);
+  }
+
+  var buttonIds = ['googleNavBtn', 'googleHeroBtn', 'googleFinalBtn'];
+  var originalHTML = {};
+  buttonIds.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el){ originalHTML[id] = el.innerHTML; }
+  });
+
+  function openModal(){ if(window.openKeylessModal) window.openKeylessModal(); }
+  function closeModal(){ if(window.closeKeylessModal) window.closeKeylessModal(); }
+  function showToast(msg){ if(window.showKeylessToast) window.showKeylessToast(msg); }
+
+  function firstName(user){
+    if(user.displayName){ return user.displayName.split(' ')[0]; }
+    return user.email ? user.email.split('@')[0] : 'there';
+  }
+
+  function initials(user){
+    var name = user.displayName || user.email || '?';
+    return name.trim().charAt(0).toUpperCase();
+  }
+
+  function renderSignedIn(user){
+    buttonIds.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      el.dataset.mode = 'out';
+      if(user.photoURL){
+        el.innerHTML = '<img src="' + user.photoURL + '" alt="" style="width:20px;height:20px;border-radius:50%;">' +
+          'Hi, ' + firstName(user) + ' · Sign out';
+      } else {
+        el.innerHTML = '<span class="g-badge"><span>' + initials(user) + '</span></span>' +
+          'Hi, ' + firstName(user) + ' · Sign out';
+      }
+    });
+  }
+
+  function renderSignedOut(){
+    buttonIds.forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      el.dataset.mode = 'in';
+      if(originalHTML[id]){ el.innerHTML = originalHTML[id]; }
+    });
+  }
+
+  async function handleGoogleClick(){
+    var mode = this.dataset.mode || 'in';
+    if(mode === 'out'){
+      try {
+        await signOut(auth);
+        showToast('Signed out.');
+      } catch(err){
+        console.error(err);
+        showToast('Could not sign out — try again.');
+      }
+      return;
+    }
+
+    openModal();
+    try {
+      var result = await signInWithPopup(auth, provider);
+      closeModal();
+      showToast('Signed in as ' + firstName(result.user) + ' — opening keyless…');
+    } catch (err) {
+      closeModal();
+      console.error(err);
+      var msg = 'Sign-in was cancelled.';
+      if(err && err.code === 'auth/popup-blocked'){
+        msg = 'Popup blocked — allow popups for this site and try again.';
+      } else if(err && err.code === 'auth/unauthorized-domain'){
+        msg = 'This domain isn\'t authorized in Firebase yet.';
+      }
+      showToast(msg);
+    }
+  }
+
+  buttonIds.forEach(function(id){
+    var el = document.getElementById(id);
+    if(el){
+      el.dataset.mode = 'in';
+      el.addEventListener('click', handleGoogleClick);
+    }
+  });
+
+  onAuthStateChanged(auth, function(user){
+    if(user){ renderSignedIn(user); } else { renderSignedOut(); }
+  });
+</script>
 
 </body>
 </html>
