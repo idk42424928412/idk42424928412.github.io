@@ -334,6 +334,57 @@
 
   .modal-foot{ font-size: 11.5px; color: #5f6368; line-height: 1.5; padding-top: 10px; border-top: 1px solid #E8EAED; }
 
+  .modal-wide{ max-width: 560px; }
+
+  .install-tabs{
+    display: inline-flex;
+    gap: 4px;
+    background: var(--paper-2);
+    padding: 4px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+  .tab-btn{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    border: none;
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 7px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .tab-btn.active{ background: var(--ink); color: var(--paper); }
+
+  .install-terminal .install-body{ padding: 22px 20px 24px; }
+  .cmd-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .cmd-row + .cmd-out{ margin: 4px 0 18px; }
+  .cmd-out{
+    color: #8B9083;
+    font-size: 12.5px;
+  }
+
+  .copy-btn{
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    background: rgba(231,232,222,.1);
+    color: var(--term-text);
+    border: 1px solid rgba(231,232,222,.18);
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background .15s ease;
+  }
+  .copy-btn:hover{ background: rgba(231,232,222,.2); }
+  .copy-btn.copied{ background: var(--diff-add); border-color: var(--diff-add); color: #fff; }
+
   .toast{
     position: fixed;
     bottom: 26px; left: 50%;
@@ -509,13 +560,46 @@
     <div class="num">006</div>
     <div class="content">
       <div class="final">
-        <p class="eyebrow">get started</p>
-        <h2>Open it. Ask it something. Get code.</h2>
-        <div class="final-ctas">
+        <p class="eyebrow" id="startEyebrow">get started</p>
+        <h2 id="startHeading">Open it. Ask it something. Get code.</h2>
+
+        <div class="final-ctas" id="signedOutCta">
           <button class="btn btn-google" id="googleFinalBtn">
             <span class="g-badge"><span>G</span></span> Continue with Google
           </button>
           <span class="hero-note">$ or run keyless --start locally</span>
+        </div>
+
+        <div id="installGuide" style="display:none;">
+          <div class="install-tabs" id="installTabs">
+            <button class="tab-btn active" data-flavor="npm">npm</button>
+            <button class="tab-btn" data-flavor="brew">brew</button>
+            <button class="tab-btn" data-flavor="curl">curl</button>
+          </div>
+
+          <div class="terminal install-terminal">
+            <div class="terminal-bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="terminal-body install-body" id="installBody">
+              <div class="cmd-row">
+                <span class="prompt-line" id="installCmd">$ npm install -g keyless-cli</span>
+                <button class="copy-btn" id="copyInstall" data-copy="npm install -g keyless-cli">Copy</button>
+              </div>
+              <div class="cmd-out">added 1 package in 1.4s — ready to run</div>
+
+              <div class="cmd-row">
+                <span class="prompt-line">$ keyless auth login</span>
+                <button class="copy-btn" data-copy="keyless auth login">Copy</button>
+              </div>
+              <div class="cmd-out" id="authOutLine">✓ signed in with Google — no key needed</div>
+
+              <div class="cmd-row">
+                <span class="prompt-line">$ keyless "write a debounce function in js"</span>
+                <button class="copy-btn" data-copy='keyless "write a debounce function in js"'>Copy</button>
+              </div>
+              <div class="cmd-out">// code streams straight to stdout — pipe it into a file, or just read it here</div>
+            </div>
+          </div>
+          <p class="hero-note" style="margin-top:14px;">Already signed in as <span id="installEmail">you</span> — your terminal session picks that up the first time you run <code>keyless auth login</code>.</p>
         </div>
       </div>
     </div>
@@ -537,6 +621,46 @@
       <p>Complete the Google sign-in popup</p>
     </div>
     <div class="modal-foot">If no popup appeared, your browser may have blocked it — allow popups for this site and try again.</div>
+  </div>
+</div>
+
+<div class="overlay" id="welcomeOverlay">
+  <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+    <div class="modal-head" style="align-items:flex-start; text-align:left;">
+      <h4 id="welcomeTitle" style="font-size:20px;">You're in, <span id="welcomeName">there</span>. Let's install keyless.</h4>
+      <p style="text-align:left;">Three commands and you're writing code from your terminal.</p>
+    </div>
+
+    <div class="install-tabs" id="welcomeTabs">
+      <button class="tab-btn active" data-flavor="npm">npm</button>
+      <button class="tab-btn" data-flavor="brew">brew</button>
+      <button class="tab-btn" data-flavor="curl">curl</button>
+    </div>
+
+    <div class="terminal install-terminal">
+      <div class="terminal-bar"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="terminal-body install-body" id="welcomeBody">
+        <div class="cmd-row">
+          <span class="prompt-line" id="welcomeCmd">$ npm install -g keyless-cli</span>
+          <button class="copy-btn" data-copy="npm install -g keyless-cli">Copy</button>
+        </div>
+        <div class="cmd-out">added 1 package in 1.4s — ready to run</div>
+
+        <div class="cmd-row">
+          <span class="prompt-line">$ keyless auth login</span>
+          <button class="copy-btn" data-copy="keyless auth login">Copy</button>
+        </div>
+        <div class="cmd-out">✓ signed in with Google — no key needed</div>
+
+        <div class="cmd-row">
+          <span class="prompt-line">$ keyless "write a debounce function in js"</span>
+          <button class="copy-btn" data-copy='keyless "write a debounce function in js"'>Copy</button>
+        </div>
+        <div class="cmd-out">// code streams straight to stdout</div>
+      </div>
+    </div>
+
+    <button class="btn" id="closeWelcomeBtn" style="margin-top:20px; width:100%; justify-content:center;">Got it</button>
   </div>
 </div>
 
@@ -708,7 +832,113 @@
       el.dataset.mode = 'in';
       if(originalHTML[id]){ el.innerHTML = originalHTML[id]; }
     });
+    var out = document.getElementById('signedOutCta');
+    var guide = document.getElementById('installGuide');
+    if(out) out.style.display = '';
+    if(guide) guide.style.display = 'none';
   }
+
+  // ---- install tutorial: flavor tabs + copy buttons ----
+
+  var flavors = {
+    npm:  '$ npm install -g keyless-cli',
+    brew: '$ brew install keyless',
+    curl: '$ curl -fsSL https://keyless.dev/install.sh | sh'
+  };
+  var flavorsCopy = {
+    npm:  'npm install -g keyless-cli',
+    brew: 'brew install keyless',
+    curl: 'curl -fsSL https://keyless.dev/install.sh | sh'
+  };
+
+  function wireTabs(tabsId, cmdId, copyId){
+    var tabs = document.getElementById(tabsId);
+    if(!tabs) return;
+    tabs.addEventListener('click', function(e){
+      var btn = e.target.closest('.tab-btn');
+      if(!btn) return;
+      tabs.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      var flavor = btn.dataset.flavor;
+      var cmdEl = document.getElementById(cmdId);
+      var copyEl = copyId ? document.getElementById(copyId) : null;
+      if(cmdEl) cmdEl.textContent = flavors[flavor];
+      if(copyEl && copyEl.classList.contains('copy-btn')) copyEl.setAttribute('data-copy', flavorsCopy[flavor]);
+    });
+  }
+  wireTabs('installTabs', 'installCmd', 'copyInstall');
+  wireTabs('welcomeTabs', 'welcomeCmd', null);
+
+  // welcome modal's first row doesn't have a fixed id for the copy button,
+  // so handle it directly:
+  (function(){
+    var tabs = document.getElementById('welcomeTabs');
+    if(!tabs) return;
+    tabs.addEventListener('click', function(e){
+      var btn = e.target.closest('.tab-btn');
+      if(!btn) return;
+      var flavor = btn.dataset.flavor;
+      var firstCopyBtn = document.querySelector('#welcomeBody .copy-btn');
+      if(firstCopyBtn) firstCopyBtn.setAttribute('data-copy', flavorsCopy[flavor]);
+    });
+  })();
+
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.copy-btn');
+    if(!btn) return;
+    var text = btn.getAttribute('data-copy') || '';
+    var done = function(){
+      var original = btn.textContent;
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(function(){ btn.textContent = original; btn.classList.remove('copied'); }, 1600);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(function(){ showToast('Could not copy — select and copy manually.'); });
+    } else {
+      showToast('Copy not supported in this browser.');
+    }
+  });
+
+  // ---- welcome modal ----
+
+  var welcomeOverlay = document.getElementById('welcomeOverlay');
+  var closeWelcomeBtn = document.getElementById('closeWelcomeBtn');
+
+  function openWelcome(user){
+    if(!welcomeOverlay) return;
+    var nameEl = document.getElementById('welcomeName');
+    if(nameEl) nameEl.textContent = firstName(user);
+    welcomeOverlay.classList.add('open');
+  }
+  function closeWelcome(){
+    if(welcomeOverlay) welcomeOverlay.classList.remove('open');
+  }
+  if(closeWelcomeBtn){ closeWelcomeBtn.addEventListener('click', closeWelcome); }
+  if(welcomeOverlay){
+    welcomeOverlay.addEventListener('click', function(e){
+      if(e.target === welcomeOverlay){ closeWelcome(); }
+    });
+  }
+
+  // ---- persistent install guide in the final section ----
+
+  function showInstallGuide(user){
+    var out = document.getElementById('signedOutCta');
+    var guide = document.getElementById('installGuide');
+    var eyebrow = document.getElementById('startEyebrow');
+    var heading = document.getElementById('startHeading');
+    var emailEl = document.getElementById('installEmail');
+    var authOutLine = document.getElementById('authOutLine');
+    if(out) out.style.display = 'none';
+    if(guide) guide.style.display = 'block';
+    if(eyebrow) eyebrow.textContent = 'you\'re in';
+    if(heading) heading.textContent = 'Install keyless in your terminal.';
+    if(emailEl) emailEl.textContent = user.email || firstName(user);
+    if(authOutLine) authOutLine.textContent = '✓ signed in as ' + (user.email || firstName(user)) + ' (Google)';
+  }
+
+  var justSignedIn = false;
 
   async function handleGoogleClick(){
     var mode = this.dataset.mode || 'in';
@@ -727,6 +957,7 @@
     try {
       var result = await signInWithPopup(auth, provider);
       closeModal();
+      justSignedIn = true;
       showToast('Signed in as ' + firstName(result.user) + ' — opening keyless…');
     } catch (err) {
       closeModal();
@@ -750,7 +981,16 @@
   });
 
   onAuthStateChanged(auth, function(user){
-    if(user){ renderSignedIn(user); } else { renderSignedOut(); }
+    if(user){
+      renderSignedIn(user);
+      showInstallGuide(user);
+      if(justSignedIn){
+        justSignedIn = false;
+        openWelcome(user);
+      }
+    } else {
+      renderSignedOut();
+    }
   });
 </script>
 
