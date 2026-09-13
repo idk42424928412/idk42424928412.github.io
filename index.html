@@ -12,16 +12,16 @@
   <style>
     * { box-sizing: border-box; }
     body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      background: #111; 
+      font-family: Arial, sans-serif; 
+      background: #121212; 
       color: #fff; 
       text-align: center; 
       margin: 0; 
       padding: 15px; 
     }
-    h1 { color: #00e676; margin-bottom: 5px; }
+    h1 { color: #00e676; margin-bottom: 10px; }
     .container { 
-      max-width: 500px; 
+      max-width: 600px; 
       margin: 0 auto; 
       background: #1e1e1e; 
       padding: 20px; 
@@ -30,37 +30,37 @@
     button { 
       background: #00e676; 
       border: none; 
-      padding: 14px 20px; 
+      padding: 14px; 
       font-size: 16px; 
       font-weight: bold; 
       color: #000;
       border-radius: 8px; 
       cursor: pointer; 
-      margin: 8px 0; 
       width: 100%;
+      margin: 8px 0;
     }
     #qrcode { 
       display: inline-block; 
       background: white; 
-      padding: 12px; 
+      padding: 15px; 
       border-radius: 8px; 
       margin: 15px 0; 
     }
-    #qrcode img { display: block; margin: 0 auto; }
     video { 
       width: 100%; 
+      max-height: 450px;
       background: #000; 
       border-radius: 8px; 
       margin-top: 10px;
+      object-fit: contain;
     }
     #status { 
       margin: 10px 0; 
-      padding: 8px;
-      border-radius: 6px;
+      padding: 10px;
       background: #2a2a2a;
       color: #ffeb3b; 
-      font-weight: 500;
-      font-size: 15px;
+      font-weight: bold;
+      border-radius: 6px;
     }
     .hidden { display: none !important; }
   </style>
@@ -69,7 +69,7 @@
 
   <div class="container">
     <h1>Web Security Camera</h1>
-    <div id="status">Select mode to start</div>
+    <div id="status">Select mode to begin</div>
 
     <div id="mode-selection">
       <button onclick="startViewer()">Monitor / Viewer (PC)</button>
@@ -78,11 +78,11 @@
 
     <!-- VIEWER MODE -->
     <div id="viewer-panel" class="hidden">
-      <div id="qr-container">
-        <p style="margin: 5px 0;">Scan this with your phone camera:</p>
+      <div id="qr-wrapper">
+        <p>Scan with your phone camera:</p>
         <div id="qrcode"></div>
       </div>
-      <video id="remote-video" autoplay playsinline muted></video>
+      <video id="remote-video" autoplay playsinline muted controls class="hidden"></video>
     </div>
 
     <!-- CAMERA MODE -->
@@ -95,21 +95,17 @@
   <script>
     let peer = null;
 
-    // Multiple STUN servers for reliable NAT Traversal across networks
     const peerConfig = {
-      debug: 1,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' }
+          { urls: 'stun:stun2.l.google.com:19302' }
         ]
       }
     };
 
-    function setStatus(msg) {
+    function updateStatus(msg) {
       document.getElementById("status").innerText = msg;
     }
 
@@ -117,106 +113,91 @@
     function startViewer() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("viewer-panel").classList.remove("hidden");
-      setStatus("Initializing signaling server...");
+      updateStatus("Generating QR Code...");
 
-      // Generate clean random 6-character ID
-      const cleanId = "cam-" + Math.random().toString(36).substring(2, 8);
-      peer = new Peer(cleanId, peerConfig);
+      const viewerId = "alfred-" + Math.floor(100000 + Math.random() * 900000);
+      peer = new Peer(viewerId, peerConfig);
 
       peer.on("open", (id) => {
         document.getElementById("qrcode").innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), {
-          text: id,
-          width: 200,
-          height: 200
-        });
-        setStatus("Waiting for phone scan...");
+        new QRCode(document.getElementById("qrcode"), { text: id, width: 200, height: 200 });
+        updateStatus("Waiting for phone scan...");
       });
 
-      // Handle incoming video calls
       peer.on("call", (call) => {
-        setStatus("Phone connected! Loading stream...");
-        call.answer(); // Answer without sending return video
+        updateStatus("Camera connected! Requesting video feed...");
+
+        // Explicitly answer the WebRTC call
+        call.answer();
 
         call.on("stream", (remoteStream) => {
-          setStatus("LIVE STREAM ACTIVE");
-          document.getElementById("qr-container").classList.add("hidden");
-          
+          updateStatus("Live Stream Connected!");
+
+          // Hide QR code and reveal video player
+          document.getElementById("qr-wrapper").classList.add("hidden");
           const videoElement = document.getElementById("remote-video");
+          videoElement.classList.remove("hidden");
+
+          // Bind stream to element
           videoElement.srcObject = remoteStream;
-          
-          // Force playback
-          const playPromise = videoElement.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(() => {
-              setStatus("Stream Ready! Tap video player to play.");
+
+          // Event triggers to bypass browser playback restrictions
+          videoElement.onloadedmetadata = () => {
+            videoElement.play().catch(err => {
+              updateStatus("Click the black video box to play the stream!");
             });
-          }
+          };
+
+          // Backup trigger if metadata event fails to fire
+          setTimeout(() => {
+            if (videoElement.paused) {
+              videoElement.play().catch(() => {});
+            }
+          }, 1000);
         });
       });
-
-      peer.on("error", (err) => setStatus("Viewer Error: " + err.type));
     }
 
     // --- CAMERA LOGIC ---
     function startCamera() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("camera-panel").classList.remove("hidden");
-      setStatus("Point camera at QR code");
+      updateStatus("Point phone camera at the QR code");
 
       peer = new Peer(peerConfig);
 
-      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 10, 
-        qrbox: { width: 220, height: 220 } 
-      });
-
+      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 220 });
       html5QrcodeScanner.render((targetPeerId) => {
         html5QrcodeScanner.clear();
-        setStatus("QR Recognized. Acquiring camera...");
+        updateStatus("QR Code Scanned! Opening camera...");
         connectAndStream(targetPeerId);
       });
     }
 
     async function connectAndStream(targetPeerId) {
-      let stream = null;
-      
-      // Try grabbing environmental (rear) camera first, then fallback to default
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        // Request video stream from rear camera with fallback
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
+        }).catch(async () => {
+          return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         });
-      } catch (e1) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        } catch (e2) {
-          setStatus("Camera permission denied!");
-          return;
-        }
+
+        // Show stream locally on phone screen
+        const localVideo = document.getElementById("local-video");
+        localVideo.srcObject = stream;
+        localVideo.classList.remove("hidden");
+        document.getElementById("reader").classList.add("hidden");
+
+        updateStatus("Streaming live to PC...");
+        
+        // Initiate connection to viewer
+        peer.call(targetPeerId, stream);
+
+      } catch (err) {
+        updateStatus("Camera Error: " + err.message);
       }
-
-      // Display camera locally on the phone
-      const localVideo = document.getElementById("local-video");
-      localVideo.srcObject = stream;
-      localVideo.classList.remove("hidden");
-      document.getElementById("reader").classList.add("hidden");
-
-      setStatus("Dialing Viewer target...");
-
-      // Establish media connection
-      const call = peer.call(targetPeerId, stream);
-
-      if (!call) {
-        setStatus("Failed to create WebRTC call object.");
-        return;
-      }
-
-      setStatus("Streaming live to Viewer!");
-
-      peer.on("error", (err) => {
-        setStatus("Camera Peer Error: " + err.type);
-      });
     }
   </script>
 </body>
