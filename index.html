@@ -3,20 +3,65 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Browser Security Cam</title>
+  <title>Browser Security Cam (Alfred Clone)</title>
+  
+  <!-- External Libraries for WebRTC Connection & QR Scanning -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
+    body { 
+      font-family: Arial, sans-serif; 
+      background: #121212; 
+      color: #fff; 
+      text-align: center; 
+      margin: 0; 
+      padding: 20px; 
+    }
     h1 { color: #00e676; }
-    .container { max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 12px; }
-    button { background: #00e676; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin: 10px; }
-    #qrcode { display: inline-block; background: white; padding: 16px; border-radius: 8px; margin-top: 15px; }
-    video { width: 100%; border-radius: 8px; background: #000; margin-top: 15px; }
-    #status { margin-top: 10px; font-weight: bold; color: #ffeb3b; }
-    .hidden { display: none; }
+    .container { 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: #1e1e1e; 
+      padding: 20px; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+    button { 
+      background: #00e676; 
+      border: none; 
+      padding: 12px 24px; 
+      font-size: 16px; 
+      font-weight: bold; 
+      color: #000;
+      border-radius: 6px; 
+      cursor: pointer; 
+      margin: 10px; 
+      transition: 0.2s;
+    }
+    button:hover { background: #00c853; }
+    #qrcode { 
+      display: inline-block; 
+      background: white; 
+      padding: 16px; 
+      border-radius: 8px; 
+      margin-top: 15px; 
+    }
+    video { 
+      width: 100%; 
+      max-height: 450px;
+      border-radius: 8px; 
+      background: #000; 
+      margin-top: 15px; 
+    }
+    #status { 
+      margin-top: 10px; 
+      font-weight: bold; 
+      color: #ffeb3b; 
+      font-size: 18px;
+    }
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
@@ -26,18 +71,18 @@
     <div id="status">Select mode to begin</div>
 
     <div id="mode-selection">
-      <button onclick="startViewer()">Monitor / Viewer (PC)</button>
-      <button onclick="startCamera()">Camera Streamer (Phone)</button>
+      <button onclick="startViewer()">Monitor / Viewer (PC/Phone 1)</button>
+      <button onclick="startCamera()">Camera Streamer (Phone 2)</button>
     </div>
 
-    <!-- VIEWER MODE -->
+    <!-- VIEWER MODE PANEL -->
     <div id="viewer-panel" class="hidden">
       <h3>Viewer Mode</h3>
       <div id="qrcode"></div>
-      <video id="remote-video" autoplay playsinline controls></video>
+      <video id="remote-video" autoplay playsinline controls class="hidden"></video>
     </div>
 
-    <!-- CAMERA MODE -->
+    <!-- CAMERA MODE PANEL -->
     <div id="camera-panel" class="hidden">
       <h3>Camera Mode</h3>
       <div id="reader"></div>
@@ -48,7 +93,7 @@
   <script>
     let peer = null;
 
-    // WebRTC Configuration with Public STUN Servers to bypass NAT/Firewalls
+    // Google STUN Servers to route video through firewalls and mobile data
     const peerConfig = {
       config: {
         iceServers: [
@@ -63,12 +108,13 @@
       document.getElementById("status").innerText = msg;
     }
 
-    // --- VIEWER LOGIC ---
+    // --- 1. VIEWER LOGIC ---
     function startViewer() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("viewer-panel").classList.remove("hidden");
       updateStatus("Generating QR code...");
 
+      // Unique random ID for connection room
       const viewerId = "alfred-" + Math.floor(100000 + Math.random() * 900000);
       peer = new Peer(viewerId, peerConfig);
 
@@ -81,43 +127,54 @@
       peer.on("call", (call) => {
         updateStatus("Camera detected! Connecting stream...");
         
-        // Answer call
+        // Answer call with no outgoing stream
         call.answer();
 
         call.on("stream", (remoteStream) => {
           updateStatus("Live Stream Connected!");
+          
+          // Hide QR Code and display video player
           document.getElementById("qrcode").classList.add("hidden");
           const videoElement = document.getElementById("remote-video");
+          videoElement.classList.remove("hidden");
+          
           videoElement.srcObject = remoteStream;
-          videoElement.play().catch(() => {});
+          videoElement.muted = true; // Required for mobile/browser autoplay compliance
+
+          // Force stream to play
+          videoElement.play().catch(() => {
+            updateStatus("Tap the video box to play stream!");
+          });
         });
 
         call.on("error", (err) => updateStatus("Connection Error: " + err));
       });
     }
 
-    // --- CAMERA LOGIC ---
+    // --- 2. CAMERA LOGIC ---
     function startCamera() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("camera-panel").classList.remove("hidden");
-      updateStatus("Align QR code inside frame");
+      updateStatus("Point camera at the QR code on the monitor screen");
 
       peer = new Peer(peerConfig);
 
       const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
       html5QrcodeScanner.render((qrCodeText) => {
-        html5QrcodeScanner.clear();
-        updateStatus("QR Scanned. Starting camera...");
+        html5QrcodeScanner.clear(); // Stop scanning on success
+        updateStatus("QR Scanned. Accessing camera...");
         connectAndStream(qrCodeText);
       });
     }
 
     async function connectAndStream(targetPeerId) {
       try {
-        // Explicit constraints for wide mobile browser compatibility
+        // Request back camera access with fallback
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
           audio: false
+        }).catch(async () => {
+          return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         });
 
         const localVideo = document.getElementById("local-video");
@@ -125,15 +182,10 @@
         localVideo.classList.remove("hidden");
         document.getElementById("reader").classList.add("hidden");
 
-        updateStatus("Connecting to Viewer...");
-        const call = peer.call(targetPeerId, stream);
-
-        call.on("close", () => updateStatus("Stream Closed"));
+        updateStatus("Streaming live video to Viewer...");
         
-        // Signal verification
-        peer.on("error", (err) => {
-          updateStatus("Peer Error: " + err.type);
-        });
+        // Initiate call to target peer ID extracted from QR code
+        peer.call(targetPeerId, stream);
 
       } catch (err) {
         updateStatus("Camera Error: " + err.message);
