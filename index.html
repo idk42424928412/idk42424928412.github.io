@@ -13,22 +13,12 @@
     * { box-sizing: border-box; }
     body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 15px; }
     h2 { color: #00e676; margin: 10px 0; }
-    .card { max-width: 450px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; position: relative; }
+    .card { max-width: 500px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; }
     button { background: #00e676; color: #000; border: none; padding: 15px; font-weight: bold; width: 100%; border-radius: 6px; margin: 8px 0; font-size: 16px; cursor: pointer; }
     #qrcode { background: white; padding: 10px; display: inline-block; border-radius: 8px; margin: 10px 0; }
     #qrcode img { display: block; margin: 0 auto; }
-    video, canvas { width: 100%; background: #000; border-radius: 8px; margin-top: 10px; }
+    canvas, video { width: 100%; height: 320px; background: #000; border-radius: 8px; margin-top: 10px; object-fit: contain; }
     #status { padding: 10px; background: #333; color: #ffeb3b; font-weight: bold; border-radius: 6px; margin-bottom: 10px; word-break: break-all; }
-    #play-overlay {
-      background: rgba(0,230,118,0.9);
-      color: #000;
-      font-size: 18px;
-      font-weight: bold;
-      padding: 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 15px;
-    }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -50,12 +40,11 @@
         <div id="qrcode"></div>
       </div>
       
-      <!-- Click Overlay to Bypass Autoplay Blocks -->
-      <div id="play-overlay" class="hidden" onclick="forcePlayStream()">
-        ▶ CLICK HERE TO START LIVE FEED
-      </div>
+      <!-- Hidden Video Element for Stream Processing -->
+      <video id="hidden-remote-video" autoplay playsinline muted class="hidden"></video>
 
-      <video id="remote-video" autoplay playsinline muted class="hidden"></video>
+      <!-- Explicit Canvas Renderer -->
+      <canvas id="view-canvas" class="hidden"></canvas>
     </div>
 
     <!-- CAMERA MODE -->
@@ -67,13 +56,12 @@
 
   <script>
     let peer = null;
-    let currentStream = null;
 
     function log(msg) {
       document.getElementById("status").innerText = msg;
     }
 
-    // --- 1. VIEWER LOGIC ---
+    // --- VIEWER LOGIC ---
     function setupViewer() {
       document.getElementById("menu").classList.add("hidden");
       document.getElementById("viewer-box").classList.remove("hidden");
@@ -97,24 +85,37 @@
       });
 
       peer.on("call", (call) => {
-        log("Phone Connected! Preparing feed...");
+        log("Phone Connected! Decoding Stream...");
         call.answer();
 
         call.on("stream", (remoteStream) => {
-          log("STREAM RECEIVED!");
-          currentStream = remoteStream;
-          
+          log("LIVE STREAM ACTIVE");
           document.getElementById("qr-wrap").classList.add("hidden");
-          const video = document.getElementById("remote-video");
-          video.srcObject = remoteStream;
 
-          // Attempt autoplay; if blocked, reveal click overlay
-          video.play().then(() => {
-            video.classList.remove("hidden");
-            log("LIVE STREAM ACTIVE");
-          }).catch(() => {
-            document.getElementById("play-overlay").classList.remove("hidden");
-            log("Click the green button to start feed!");
+          const hiddenVideo = document.getElementById("hidden-remote-video");
+          const canvas = document.getElementById("view-canvas");
+          const ctx = canvas.getContext("2d");
+
+          canvas.classList.remove("hidden");
+          hiddenVideo.srcObject = remoteStream;
+
+          hiddenVideo.play().then(() => {
+            // Render loop: copy video frames onto canvas continuously
+            function renderLoop() {
+              if (hiddenVideo.readyState >= hiddenVideo.HAVE_CURRENT_DATA) {
+                canvas.width = hiddenVideo.videoWidth || 640;
+                canvas.height = hiddenVideo.videoHeight || 480;
+                ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
+              }
+              requestAnimationFrame(renderLoop);
+            }
+            renderLoop();
+          }).catch(err => {
+            log("Click anywhere on screen to unblock feed!");
+            document.body.onclick = () => {
+              hiddenVideo.play();
+              document.body.onclick = null;
+            };
           });
         });
       });
@@ -122,18 +123,7 @@
       peer.on("error", (err) => log("Viewer Error: " + err.type));
     }
 
-    function forcePlayStream() {
-      const video = document.getElementById("remote-video");
-      if (currentStream) {
-        video.srcObject = currentStream;
-        video.play();
-        video.classList.remove("hidden");
-        document.getElementById("play-overlay").classList.add("hidden");
-        log("LIVE STREAM ACTIVE");
-      }
-    }
-
-    // --- 2. CAMERA LOGIC ---
+    // --- CAMERA LOGIC ---
     async function setupCamera() {
       document.getElementById("menu").classList.add("hidden");
       document.getElementById("camera-box").classList.remove("hidden");
@@ -193,9 +183,8 @@
       });
 
       peer.on("open", () => {
-        log("Connecting stream to PC...");
-        peer.call(targetId, cameraStream);
         log("Streaming active on PC!");
+        peer.call(targetId, cameraStream);
       });
 
       peer.on("error", (err) => log("Camera Peer Error: " + err.type));
