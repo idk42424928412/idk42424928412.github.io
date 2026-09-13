@@ -336,6 +336,31 @@
 
   .modal-wide{ max-width: 560px; }
 
+  .prereq-note{
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--paper-2);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+  .prereq-note a{
+    color: var(--blue);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .prereq-note a:hover{ text-decoration: underline; }
+  .prereq-dot{
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber);
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+
   .install-tabs{
     display: inline-flex;
     gap: 4px;
@@ -474,7 +499,7 @@
     <div class="content">
       <p class="eyebrow">why no key</p>
       <h2>Bring nothing but the problem.</h2>
-      <p class="section-lede">Every other wrapper asks you to hand over an OpenAI or Anthropic key before it writes a line. keyless ships with its own engine already wired in — sign in with Google and you're in.</p>
+      <p class="section-lede">Every other wrapper asks you to hand over an OpenAI or Anthropic key before it writes a line. keyless runs its own model locally — install it and it just works, no key or account required.</p>
       <div class="features">
         <div class="feature">
           <span class="tag">no setup</span>
@@ -510,7 +535,7 @@
       <div class="steps">
         <div class="step">
           <div class="idx">1</div>
-          <div><h3>Sign in with Google</h3><p>One click. No form to fill in, no key to generate first.</p></div>
+          <div><h3>Install the CLI</h3><p><code>npm install -g keyless-cli</code> — no signup, no key to generate first.</p></div>
         </div>
         <div class="step">
           <div class="idx">2</div>
@@ -571,6 +596,11 @@
         </div>
 
         <div id="installGuide" style="display:none;">
+          <div class="prereq-note">
+            <span class="prereq-dot"></span>
+            Requires <strong>Node.js 18+</strong>. Don't have it? <a href="https://nodejs.org" target="_blank" rel="noopener">Download Node.js</a> first — the LTS installer for your OS includes npm, then come back and run the command below.
+          </div>
+
           <div class="install-tabs" id="installTabs">
             <button class="tab-btn active" data-flavor="npm">npm</button>
             <button class="tab-btn" data-flavor="brew">brew</button>
@@ -584,22 +614,16 @@
                 <span class="prompt-line" id="installCmd">$ npm install -g keyless-cli</span>
                 <button class="copy-btn" id="copyInstall" data-copy="npm install -g keyless-cli">Copy</button>
               </div>
-              <div class="cmd-out">added 1 package in 1.4s — ready to run</div>
-
-              <div class="cmd-row">
-                <span class="prompt-line">$ keyless auth login</span>
-                <button class="copy-btn" data-copy="keyless auth login">Copy</button>
-              </div>
-              <div class="cmd-out" id="authOutLine">✓ signed in with Google — no key needed</div>
+              <div class="cmd-out">added 1 package — ready to run</div>
 
               <div class="cmd-row">
                 <span class="prompt-line">$ keyless "write a debounce function in js"</span>
                 <button class="copy-btn" data-copy='keyless "write a debounce function in js"'>Copy</button>
               </div>
-              <div class="cmd-out">// code streams straight to stdout — pipe it into a file, or just read it here</div>
+              <div class="cmd-out" id="authOutLine">first run downloads a ~1GB local model, then it's fully offline</div>
             </div>
           </div>
-          <p class="hero-note" style="margin-top:14px;">Already signed in as <span id="installEmail">you</span> — your terminal session picks that up the first time you run <code>keyless auth login</code>.</p>
+          <p class="hero-note" style="margin-top:14px;">Signed in as <span id="installEmail">you</span> on this site — the CLI itself runs fully offline, so there's no login step at all.</p>
         </div>
       </div>
     </div>
@@ -628,7 +652,12 @@
   <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
     <div class="modal-head" style="align-items:flex-start; text-align:left;">
       <h4 id="welcomeTitle" style="font-size:20px;">You're in, <span id="welcomeName">there</span>. Let's install keyless.</h4>
-      <p style="text-align:left;">Three commands and you're writing code from your terminal.</p>
+      <p style="text-align:left;">Two commands and you're writing code from your terminal.</p>
+    </div>
+
+    <div class="prereq-note">
+      <span class="prereq-dot"></span>
+      Requires <strong>Node.js 18+</strong>. Don't have it? <a href="https://nodejs.org" target="_blank" rel="noopener">Download Node.js</a> first — the LTS installer includes npm.
     </div>
 
     <div class="install-tabs" id="welcomeTabs">
@@ -644,23 +673,18 @@
           <span class="prompt-line" id="welcomeCmd">$ npm install -g keyless-cli</span>
           <button class="copy-btn" data-copy="npm install -g keyless-cli">Copy</button>
         </div>
-        <div class="cmd-out">added 1 package in 1.4s — ready to run</div>
-
-        <div class="cmd-row">
-          <span class="prompt-line">$ keyless auth login</span>
-          <button class="copy-btn" data-copy="keyless auth login">Copy</button>
-        </div>
-        <div class="cmd-out">✓ signed in with Google — no key needed</div>
+        <div class="cmd-out">added 1 package — ready to run</div>
 
         <div class="cmd-row">
           <span class="prompt-line">$ keyless "write a debounce function in js"</span>
           <button class="copy-btn" data-copy='keyless "write a debounce function in js"'>Copy</button>
         </div>
-        <div class="cmd-out">// code streams straight to stdout</div>
+        <div class="cmd-out">first run downloads a ~1GB local model, then it's fully offline</div>
       </div>
     </div>
 
-    <button class="btn" id="closeWelcomeBtn" style="margin-top:20px; width:100%; justify-content:center;">Got it</button>
+    <p class="hero-note" style="margin: 12px 0 0;">No auth step — the CLI runs entirely on your machine.</p>
+    <button class="btn" id="closeWelcomeBtn" style="margin-top:16px; width:100%; justify-content:center;">Got it</button>
   </div>
 </div>
 
@@ -929,13 +953,11 @@
     var eyebrow = document.getElementById('startEyebrow');
     var heading = document.getElementById('startHeading');
     var emailEl = document.getElementById('installEmail');
-    var authOutLine = document.getElementById('authOutLine');
     if(out) out.style.display = 'none';
     if(guide) guide.style.display = 'block';
     if(eyebrow) eyebrow.textContent = 'you\'re in';
     if(heading) heading.textContent = 'Install keyless in your terminal.';
     if(emailEl) emailEl.textContent = user.email || firstName(user);
-    if(authOutLine) authOutLine.textContent = '✓ signed in as ' + (user.email || firstName(user)) + ' (Google)';
   }
 
   var justSignedIn = false;
