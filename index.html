@@ -1,194 +1,1362 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Security Cam</title>
-  
+  <title>Web Security Camera</title>
+
+  <!-- PeerJS -->
+
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+  <!-- QR Code Generator -->
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- QR Code Scanner -->
+
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
   <style>
-    * { box-sizing: border-box; }
-    body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 15px; }
-    h2 { color: #00e676; margin: 10px 0; }
-    .card { max-width: 500px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; }
-    button { background: #00e676; color: #000; border: none; padding: 15px; font-weight: bold; width: 100%; border-radius: 6px; margin: 8px 0; font-size: 16px; cursor: pointer; }
-    #qrcode { background: white; padding: 10px; display: inline-block; border-radius: 8px; margin: 10px 0; }
-    #qrcode img { display: block; margin: 0 auto; }
-    canvas, video { width: 100%; height: 320px; background: #000; border-radius: 8px; margin-top: 10px; object-fit: contain; }
-    #status { padding: 10px; background: #333; color: #ffeb3b; font-weight: bold; border-radius: 6px; margin-bottom: 10px; word-break: break-all; }
-    .hidden { display: none !important; }
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 15px;
+    }
+
+    h2 {
+      color: #00e676;
+      margin: 10px 0 15px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 600px;
+      margin: 0 auto;
+      background: #222;
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    button {
+      background: #00e676;
+      color: #000;
+      border: none;
+      padding: 15px;
+      font-weight: bold;
+      width: 100%;
+      border-radius: 7px;
+      margin: 8px 0;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #00c853;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    #qrcode {
+      background: white;
+      padding: 12px;
+      display: inline-block;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+
+    #qrcode img {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /*
+      LIVE REMOTE VIDEO
+
+      The important fix is that the WebRTC stream is attached
+      directly to this video element instead of being copied
+      through a hidden video and canvas.
+    */
+
+    #remote-video {
+      width: 100%;
+      height: auto;
+      min-height: 320px;
+      background: #000;
+      border-radius: 8px;
+      margin-top: 10px;
+      object-fit: contain;
+      display: block;
+    }
+
+    /*
+      Phone camera used for QR scanning.
+    */
+
+    #scanner-video {
+      width: 100%;
+      height: 320px;
+      background: #000;
+      border-radius: 8px;
+      margin-top: 10px;
+      object-fit: cover;
+      display: block;
+    }
+
+    #status {
+      padding: 12px;
+      background: #333;
+      color: #ffeb3b;
+      font-weight: bold;
+      border-radius: 7px;
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    #connection-info {
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 8px;
+      word-break: break-word;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .live {
+      color: #00e676;
+    }
+
+    .qr-title {
+      margin-bottom: 5px;
+    }
   </style>
+
 </head>
+
 <body>
 
   <div class="card">
-    <h2>Web Security Camera</h2>
-    <div id="status">Select Mode Below</div>
 
-    <div id="menu">
-      <button onclick="setupViewer()">1. VIEW SCREEN (PC / Tablet)</button>
-      <button onclick="setupCamera()">2. CAMERA (Phone)</button>
-    </div>
+```
+<h2>Web Security Camera</h2>
 
-    <!-- VIEWER MODE -->
-    <div id="viewer-box" class="hidden">
-      <div id="qr-wrap">
-        <p>Scan with your Phone Camera:</p>
-        <div id="qrcode"></div>
-      </div>
-      
-      <!-- Hidden Video Element for Stream Processing -->
-      <video id="hidden-remote-video" autoplay playsinline muted class="hidden"></video>
+<div id="status">
+  Select Mode Below
+</div>
 
-      <!-- Explicit Canvas Renderer -->
-      <canvas id="view-canvas" class="hidden"></canvas>
-    </div>
 
-    <!-- CAMERA MODE -->
-    <div id="camera-box" class="hidden">
-      <video id="scanner-video" autoplay playsinline muted></video>
-      <canvas id="qr-canvas" class="hidden"></canvas>
-    </div>
+<!-- ======================================================
+     MAIN MENU
+     ====================================================== -->
+
+<div id="menu">
+
+  <button onclick="setupViewer()">
+    1. VIEW SCREEN (PC / Tablet)
+  </button>
+
+  <button onclick="setupCamera()">
+    2. CAMERA (Phone)
+  </button>
+
+</div>
+
+
+<!-- ======================================================
+     VIEWER MODE
+     ====================================================== -->
+
+<div id="viewer-box" class="hidden">
+
+  <div id="qr-wrap">
+
+    <p class="qr-title">
+      Scan this QR code with your phone:
+    </p>
+
+    <div id="qrcode"></div>
+
+  </div>
+
+
+  <!--
+    LIVE WEBRTC VIDEO
+
+    This is intentionally NOT hidden.
+    The remote MediaStream is attached directly here.
+  -->
+
+  <video
+    id="remote-video"
+    autoplay
+    playsinline
+    muted
+    controls
+  ></video>
+
+
+  <div id="connection-info">
+    Waiting for camera...
+  </div>
+
+</div>
+
+
+<!-- ======================================================
+     CAMERA MODE
+     ====================================================== -->
+
+<div id="camera-box" class="hidden">
+
+  <video
+    id="scanner-video"
+    autoplay
+    playsinline
+    muted
+  ></video>
+
+  <!-- Canvas is only used for QR scanning -->
+  <canvas
+    id="qr-canvas"
+    class="hidden"
+  ></canvas>
+
+</div>
+```
+
   </div>
 
   <script>
-    let peer = null;
 
-    function log(msg) {
-      document.getElementById("status").innerText = msg;
+    /*
+     * =========================================================
+     * GLOBAL VARIABLES
+     * =========================================================
+     */
+
+    let peer = null;
+    let cameraStream = null;
+    let currentCall = null;
+
+
+    /*
+     * =========================================================
+     * UI HELPERS
+     * =========================================================
+     */
+
+    function log(message) {
+
+      console.log(message);
+
+      const status =
+        document.getElementById("status");
+
+      status.innerText = message;
     }
 
-    // --- VIEWER LOGIC ---
+
+    function show(id) {
+
+      document
+        .getElementById(id)
+        .classList
+        .remove("hidden");
+
+    }
+
+
+    function hide(id) {
+
+      document
+        .getElementById(id)
+        .classList
+        .add("hidden");
+
+    }
+
+
+    /*
+     * =========================================================
+     * VIEWER MODE
+     * =========================================================
+     */
+
     function setupViewer() {
-      document.getElementById("menu").classList.add("hidden");
-      document.getElementById("viewer-box").classList.remove("hidden");
-      log("Connecting to Signaling Server...");
 
-      const viewerId = "cam-" + Math.floor(100000 + Math.random() * 900000);
-      
+      console.log("Starting viewer...");
+
+      hide("menu");
+      show("viewer-box");
+
+      log("Connecting to signaling server...");
+
+
+      /*
+       * Generate a unique viewer ID.
+       *
+       * The phone scans this ID from the QR code.
+       */
+
+      const viewerId =
+        "cam-" +
+        Math.floor(
+          100000 +
+          Math.random() * 900000
+        );
+
+
+      /*
+       * Create PeerJS connection.
+       */
+
       peer = new Peer(viewerId, {
+
+        debug: 2,
+
         config: {
+
           iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
+
+            {
+              urls:
+                "stun:stun.l.google.com:19302"
+            },
+
+            {
+              urls:
+                "stun:stun1.l.google.com:19302"
+            }
+
           ]
+
         }
+
       });
 
-      peer.on("open", (id) => {
-        document.getElementById("qrcode").innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), { text: id, width: 200, height: 200 });
-        log("Ready! Scan QR code using Phone");
+
+      /*
+       * =======================================================
+       * PEER OPEN
+       * =======================================================
+       */
+
+      peer.on("open", function(id) {
+
+        console.log(
+          "Viewer Peer ID:",
+          id
+        );
+
+
+        /*
+         * Create QR code.
+         */
+
+        const qr =
+          document.getElementById("qrcode");
+
+        qr.innerHTML = "";
+
+
+        new QRCode(qr, {
+
+          text: id,
+
+          width: 220,
+
+          height: 220,
+
+          correctLevel:
+            QRCode.CorrectLevel.M
+
+        });
+
+
+        log(
+          "Ready! Scan the QR code with the phone."
+        );
+
+
+        document
+          .getElementById("connection-info")
+          .innerText =
+            "Viewer ID: " + id;
+
       });
 
-      peer.on("call", (call) => {
-        log("Phone Connected! Decoding Stream...");
+
+      /*
+       * =======================================================
+       * INCOMING CALL
+       * =======================================================
+       */
+
+      peer.on("call", function(call) {
+
+        console.log(
+          "Incoming WebRTC call:",
+          call
+        );
+
+
+        currentCall = call;
+
+
+        log(
+          "Phone connected. Receiving video..."
+        );
+
+
+        /*
+         * Answer the call.
+
+         * We don't send a stream back because
+         * the viewer is receive-only.
+         */
+
         call.answer();
 
-        call.on("stream", (remoteStream) => {
-          log("LIVE STREAM ACTIVE");
-          document.getElementById("qr-wrap").classList.add("hidden");
 
-          const hiddenVideo = document.getElementById("hidden-remote-video");
-          const canvas = document.getElementById("view-canvas");
-          const ctx = canvas.getContext("2d");
+        /*
+         * =====================================================
+         * REMOTE STREAM
+         * =====================================================
+         */
 
-          canvas.classList.remove("hidden");
-          hiddenVideo.srcObject = remoteStream;
+        call.on("stream", function(remoteStream) {
 
-          hiddenVideo.play().then(() => {
-            // Render loop: copy video frames onto canvas continuously
-            function renderLoop() {
-              if (hiddenVideo.readyState >= hiddenVideo.HAVE_CURRENT_DATA) {
-                canvas.width = hiddenVideo.videoWidth || 640;
-                canvas.height = hiddenVideo.videoHeight || 480;
-                ctx.drawImage(hiddenVideo, 0, 0, canvas.width, canvas.height);
-              }
-              requestAnimationFrame(renderLoop);
-            }
-            renderLoop();
-          }).catch(err => {
-            log("Click anywhere on screen to unblock feed!");
-            document.body.onclick = () => {
-              hiddenVideo.play();
-              document.body.onclick = null;
-            };
-          });
+          console.log(
+            "REMOTE STREAM RECEIVED"
+          );
+
+
+          console.log(
+            "Remote stream:",
+            remoteStream
+          );
+
+
+          /*
+           * Get remote video tracks.
+           */
+
+          const videoTracks =
+            remoteStream.getVideoTracks();
+
+
+          console.log(
+            "Remote video tracks:",
+            videoTracks
+          );
+
+
+          /*
+           * Make sure a video track exists.
+           */
+
+          if (
+            !videoTracks ||
+            videoTracks.length === 0
+          ) {
+
+            log(
+              "ERROR: No video track received."
+            );
+
+            return;
+
+          }
+
+
+          /*
+           * Get our visible video element.
+           */
+
+          const video =
+            document.getElementById(
+              "remote-video"
+            );
+
+
+          /*
+           * IMPORTANT FIX:
+           *
+           * Attach the WebRTC MediaStream
+           * directly to the video element.
+           *
+           * We do NOT use canvas for the live feed.
+           */
+
+          video.srcObject =
+            remoteStream;
+
+
+          /*
+           * Make sure browser playback settings
+           * are correct.
+           */
+
+          video.autoplay = true;
+
+          video.playsInline = true;
+
+          video.muted = true;
+
+
+          /*
+           * Hide QR code once stream arrives.
+           */
+
+          hide("qr-wrap");
+
+
+          /*
+           * Update status.
+           */
+
+          log(
+            "LIVE STREAM ACTIVE"
+          );
+
+
+          document
+            .getElementById("connection-info")
+            .innerText =
+              "Receiving live video";
+
+
+          /*
+           * Explicitly start playback.
+           */
+
+          video.play()
+            .then(function() {
+
+              console.log(
+                "Remote video is playing."
+              );
+
+              log(
+                "LIVE STREAM ACTIVE"
+              );
+
+            })
+            .catch(function(error) {
+
+              console.error(
+                "Remote video play error:",
+                error
+              );
+
+
+              /*
+               * Some browsers may require
+               * user interaction.
+               */
+
+              log(
+                "Tap the video to start playback."
+              );
+
+            });
+
+
+          /*
+           * ===================================================
+           * VIDEO TRACK EVENTS
+           * ===================================================
+           */
+
+          const track =
+            videoTracks[0];
+
+
+          console.log(
+            "Video track:",
+            track
+          );
+
+
+          console.log(
+            "Track state:",
+            track.readyState
+          );
+
+
+          console.log(
+            "Track enabled:",
+            track.enabled
+          );
+
+
+          /*
+           * Camera muted.
+           */
+
+          track.onmute = function() {
+
+            console.log(
+              "Remote camera track muted."
+            );
+
+            log(
+              "Camera video paused."
+            );
+
+          };
+
+
+          /*
+           * Camera unmuted.
+           */
+
+          track.onunmute = function() {
+
+            console.log(
+              "Remote camera track unmuted."
+            );
+
+            log(
+              "LIVE STREAM ACTIVE"
+            );
+
+          };
+
+
+          /*
+           * Camera stopped.
+           */
+
+          track.onended = function() {
+
+            console.log(
+              "Remote camera track ended."
+            );
+
+            log(
+              "Camera stopped streaming."
+            );
+
+          };
+
         });
+
+
+        /*
+         * =====================================================
+         * CALL CLOSED
+         * =====================================================
+         */
+
+        call.on("close", function() {
+
+          console.log(
+            "WebRTC call closed."
+          );
+
+
+          const video =
+            document.getElementById(
+              "remote-video"
+            );
+
+
+          video.srcObject = null;
+
+
+          document
+            .getElementById("connection-info")
+            .innerText =
+              "Camera disconnected";
+
+
+          log(
+            "Camera disconnected."
+          );
+
+        });
+
+
+        /*
+         * =====================================================
+         * CALL ERROR
+         * =====================================================
+         */
+
+        call.on("error", function(error) {
+
+          console.error(
+            "WebRTC call error:",
+            error
+          );
+
+
+          log(
+            "Call error: " +
+            (error.message || error.type)
+          );
+
+        });
+
       });
 
-      peer.on("error", (err) => log("Viewer Error: " + err.type));
+
+      /*
+       * =======================================================
+       * PEER ERROR
+       * =======================================================
+       */
+
+      peer.on("error", function(error) {
+
+        console.error(
+          "Viewer PeerJS error:",
+          error
+        );
+
+
+        log(
+          "Viewer Error: " +
+          (error.message || error.type)
+        );
+
+      });
+
+
+      /*
+       * =======================================================
+       * PEER DISCONNECTED
+       * =======================================================
+       */
+
+      peer.on("disconnected", function() {
+
+        console.log(
+          "Viewer disconnected from PeerJS."
+        );
+
+
+        log(
+          "Signaling connection lost."
+        );
+
+      });
+
+
+      /*
+       * =======================================================
+       * PEER CLOSE
+       * =======================================================
+       */
+
+      peer.on("close", function() {
+
+        console.log(
+          "Viewer peer closed."
+        );
+
+      });
+
     }
 
-    // --- CAMERA LOGIC ---
-    async function setupCamera() {
-      document.getElementById("menu").classList.add("hidden");
-      document.getElementById("camera-box").classList.remove("hidden");
-      log("Opening Phone Camera...");
 
-      const video = document.getElementById("scanner-video");
-      const canvas = document.getElementById("qr-canvas");
-      const ctx = canvas.getContext("2d");
+    /*
+     * =========================================================
+     * CAMERA MODE
+     * =========================================================
+     */
+
+    async function setupCamera() {
+
+      hide("menu");
+
+      show("camera-box");
+
+      log(
+        "Opening phone camera..."
+      );
+
+
+      const video =
+        document.getElementById(
+          "scanner-video"
+        );
+
+
+      const canvas =
+        document.getElementById(
+          "qr-canvas"
+        );
+
+
+      /*
+       * The QR canvas is only used for
+       * analyzing camera frames.
+       */
+
+      const ctx =
+        canvas.getContext(
+          "2d",
+          {
+            willReadFrequently: true
+          }
+        );
+
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false
-        });
-        video.srcObject = stream;
-        video.setAttribute("playsinline", true);
-        video.play();
-        log("Point camera directly at QR Code");
+
+        /*
+         * Request rear camera.
+         */
+
+        cameraStream =
+          await navigator.mediaDevices
+            .getUserMedia({
+
+              video: {
+
+                facingMode: {
+                  ideal: "environment"
+                },
+
+                width: {
+                  ideal: 1280
+                },
+
+                height: {
+                  ideal: 720
+                }
+
+              },
+
+              audio: false
+
+            });
+
+
+        console.log(
+          "Camera stream:",
+          cameraStream
+        );
+
+
+        console.log(
+          "Camera tracks:",
+          cameraStream.getTracks()
+        );
+
+
+        /*
+         * Attach camera to scanner.
+         */
+
+        video.srcObject =
+          cameraStream;
+
+
+        video.autoplay = true;
+
+        video.playsInline = true;
+
+        video.muted = true;
+
+
+        /*
+         * Start camera playback.
+         */
+
+        await video.play();
+
+
+        log(
+          "Point camera directly at the QR code."
+        );
+
+
+        /*
+         * =====================================================
+         * QR SCANNER
+         * =====================================================
+         */
 
         let scanning = true;
-        const scanFrame = () => {
-          if (!scanning) return;
 
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            canvas.height = video.videoHeight;
-            canvas.width = video.videoWidth;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-            if (code && code.data && code.data.startsWith("cam-")) {
-              scanning = false;
-              log("Scanned! Broadcasting live stream...");
-              connectToViewer(code.data, stream);
-              return;
-            }
+        function scanFrame() {
+
+          if (!scanning) {
+            return;
           }
-          requestAnimationFrame(scanFrame);
-        };
 
-        requestAnimationFrame(scanFrame);
 
-      } catch (err) {
-        log("Camera Error: " + err.message);
-      }
-    }
+          /*
+           * Wait until video has actual dimensions.
+           */
 
-    function connectToViewer(targetId, cameraStream) {
-      peer = new Peer({
-        config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" }
-          ]
+          if (
+            video.readyState >=
+              HTMLMediaElement.HAVE_CURRENT_DATA &&
+
+            video.videoWidth > 0 &&
+
+            video.videoHeight > 0
+          ) {
+
+
+            canvas.width =
+              video.videoWidth;
+
+
+            canvas.height =
+              video.videoHeight;
+
+
+            /*
+             * Copy camera frame into canvas.
+             */
+
+            ctx.drawImage(
+
+              video,
+
+              0,
+
+              0,
+
+              canvas.width,
+
+              canvas.height
+
+            );
+
+
+            try {
+
+              const imageData =
+                ctx.getImageData(
+
+                  0,
+
+                  0,
+
+                  canvas.width,
+
+                  canvas.height
+
+                );
+
+
+              /*
+               * Scan QR code.
+               */
+
+              const code =
+                jsQR(
+
+                  imageData.data,
+
+                  imageData.width,
+
+                  imageData.height,
+
+                  {
+
+                    inversionAttempts:
+                      "attemptBoth"
+
+                  }
+
+                );
+
+
+              /*
+               * QR code found.
+               */
+
+              if (
+                code &&
+                code.data &&
+                code.data.startsWith("cam-")
+              ) {
+
+                scanning = false;
+
+
+                console.log(
+                  "QR code detected:",
+                  code.data
+                );
+
+
+                log(
+                  "QR scanned! Starting live stream..."
+                );
+
+
+                /*
+                 * Hide scanner.
+                 */
+
+                video.style.display =
+                  "none";
+
+
+                /*
+                 * Start WebRTC stream.
+                 */
+
+                connectToViewer(
+
+                  code.data,
+
+                  cameraStream
+
+                );
+
+
+                return;
+
+              }
+
+            } catch (error) {
+
+              console.error(
+                "QR scanning error:",
+                error
+              );
+
+            }
+
+          }
+
+
+          /*
+           * Continue scanning.
+           */
+
+          requestAnimationFrame(
+            scanFrame
+          );
+
         }
-      });
 
-      peer.on("open", () => {
-        log("Streaming active on PC!");
-        peer.call(targetId, cameraStream);
-      });
 
-      peer.on("error", (err) => log("Camera Peer Error: " + err.type));
+        /*
+         * Start QR scanner.
+         */
+
+        requestAnimationFrame(
+          scanFrame
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Camera error:",
+          error
+        );
+
+
+        log(
+          "Camera Error: " +
+          error.message
+        );
+
+      }
+
     }
+
+
+    /*
+     * =========================================================
+     * CONNECT PHONE TO VIEWER
+     * =========================================================
+     */
+
+    function connectToViewer(
+      targetId,
+      stream
+    ) {
+
+      console.log(
+        "Connecting to viewer:",
+        targetId
+      );
+
+
+      console.log(
+        "Stream being sent:",
+        stream
+      );
+
+
+      /*
+       * Check that the camera actually has
+       * a video track.
+       */
+
+      const tracks =
+        stream.getVideoTracks();
+
+
+      console.log(
+        "Tracks being sent:",
+        tracks
+      );
+
+
+      if (
+        !tracks ||
+        tracks.length === 0
+      ) {
+
+        log(
+          "ERROR: No camera video track."
+        );
+
+        return;
+
+      }
+
+
+      /*
+       * Create phone PeerJS connection.
+       */
+
+      peer = new Peer({
+
+        debug: 2,
+
+        config: {
+
+          iceServers: [
+
+            {
+              urls:
+                "stun:stun.l.google.com:19302"
+            },
+
+            {
+              urls:
+                "stun:stun1.l.google.com:19302"
+            }
+
+          ]
+
+        }
+
+      });
+
+
+      /*
+       * =======================================================
+       * PHONE PEER OPEN
+       * =======================================================
+       */
+
+      peer.on("open", function(myId) {
+
+        console.log(
+          "Camera Peer ID:",
+          myId
+        );
+
+
+        console.log(
+          "Calling viewer:",
+          targetId
+        );
+
+
+        log(
+          "Sending camera stream..."
+        );
+
+
+        /*
+         * Send camera MediaStream.
+         */
+
+        const call =
+          peer.call(
+            targetId,
+            stream
+          );
+
+
+        if (!call) {
+
+          log(
+            "ERROR: Could not create WebRTC call."
+          );
+
+          return;
+
+        }
+
+
+        currentCall = call;
+
+
+        /*
+         * =====================================================
+         * CALL EVENTS
+         * =====================================================
+         */
+
+        call.on("close", function() {
+
+          console.log(
+            "Viewer closed the connection."
+          );
+
+
+          log(
+            "Viewer disconnected."
+          );
+
+        });
+
+
+        call.on("error", function(error) {
+
+          console.error(
+            "Camera call error:",
+            error
+          );
+
+
+          log(
+            "Streaming Error: " +
+            (error.message || error.type)
+          );
+
+        });
+
+
+        /*
+         * =====================================================
+         * CAMERA TRACK MONITOR
+         * =====================================================
+         */
+
+        tracks.forEach(function(track) {
+
+          console.log(
+            "Sending track:",
+            track.kind,
+            track.readyState,
+            track.enabled
+          );
+
+
+          track.onended = function() {
+
+            console.log(
+              "Camera track ended."
+            );
+
+
+            log(
+              "Camera stopped."
+            );
+
+          };
+
+
+          track.onmute = function() {
+
+            console.log(
+              "Camera track muted."
+            );
+
+          };
+
+
+          track.onunmute = function() {
+
+            console.log(
+              "Camera track unmuted."
+            );
+
+          };
+
+        });
+
+
+        log(
+          "LIVE STREAMING TO VIEWER"
+        );
+
+      });
+
+
+      /*
+       * =======================================================
+       * PHONE PEER ERROR
+       * =======================================================
+       */
+
+      peer.on("error", function(error) {
+
+        console.error(
+          "Camera PeerJS error:",
+          error
+        );
+
+
+        log(
+          "Camera Peer Error: " +
+          (error.message || error.type)
+        );
+
+      });
+
+
+      /*
+       * =======================================================
+       * PHONE PEER DISCONNECTED
+       * =======================================================
+       */
+
+      peer.on("disconnected", function() {
+
+        console.log(
+          "Camera PeerJS disconnected."
+        );
+
+
+        log(
+          "Connection to signaling server lost."
+        );
+
+      });
+
+
+      peer.on("close", function() {
+
+        console.log(
+          "Camera peer closed."
+        );
+
+      });
+
+    }
+
   </script>
+
 </body>
 </html>
