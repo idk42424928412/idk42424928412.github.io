@@ -13,12 +13,22 @@
     * { box-sizing: border-box; }
     body { font-family: sans-serif; background: #111; color: #fff; text-align: center; margin: 0; padding: 15px; }
     h2 { color: #00e676; margin: 10px 0; }
-    .card { max-width: 450px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; }
+    .card { max-width: 450px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; position: relative; }
     button { background: #00e676; color: #000; border: none; padding: 15px; font-weight: bold; width: 100%; border-radius: 6px; margin: 8px 0; font-size: 16px; cursor: pointer; }
     #qrcode { background: white; padding: 10px; display: inline-block; border-radius: 8px; margin: 10px 0; }
     #qrcode img { display: block; margin: 0 auto; }
     video, canvas { width: 100%; background: #000; border-radius: 8px; margin-top: 10px; }
     #status { padding: 10px; background: #333; color: #ffeb3b; font-weight: bold; border-radius: 6px; margin-bottom: 10px; word-break: break-all; }
+    #play-overlay {
+      background: rgba(0,230,118,0.9);
+      color: #000;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
     .hidden { display: none !important; }
   </style>
 </head>
@@ -39,6 +49,12 @@
         <p>Scan with your Phone Camera:</p>
         <div id="qrcode"></div>
       </div>
+      
+      <!-- Click Overlay to Bypass Autoplay Blocks -->
+      <div id="play-overlay" class="hidden" onclick="forcePlayStream()">
+        ▶ CLICK HERE TO START LIVE FEED
+      </div>
+
       <video id="remote-video" autoplay playsinline muted class="hidden"></video>
     </div>
 
@@ -51,6 +67,7 @@
 
   <script>
     let peer = null;
+    let currentStream = null;
 
     function log(msg) {
       document.getElementById("status").innerText = msg;
@@ -60,14 +77,16 @@
     function setupViewer() {
       document.getElementById("menu").classList.add("hidden");
       document.getElementById("viewer-box").classList.remove("hidden");
-      log("Connecting to Peer Server...");
+      log("Connecting to Signaling Server...");
 
       const viewerId = "cam-" + Math.floor(100000 + Math.random() * 900000);
       
       peer = new Peer(viewerId, {
-        debug: 2,
         config: {
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" }
+          ]
         }
       });
 
@@ -78,23 +97,43 @@
       });
 
       peer.on("call", (call) => {
-        log("Incoming connection... Answering stream");
+        log("Phone Connected! Preparing feed...");
         call.answer();
 
         call.on("stream", (remoteStream) => {
-          log("STREAM LIVE!");
+          log("STREAM RECEIVED!");
+          currentStream = remoteStream;
+          
           document.getElementById("qr-wrap").classList.add("hidden");
           const video = document.getElementById("remote-video");
-          video.classList.remove("hidden");
           video.srcObject = remoteStream;
-          video.play().catch(() => log("Click black screen to play video"));
+
+          // Attempt autoplay; if blocked, reveal click overlay
+          video.play().then(() => {
+            video.classList.remove("hidden");
+            log("LIVE STREAM ACTIVE");
+          }).catch(() => {
+            document.getElementById("play-overlay").classList.remove("hidden");
+            log("Click the green button to start feed!");
+          });
         });
       });
 
       peer.on("error", (err) => log("Viewer Error: " + err.type));
     }
 
-    // --- 2. CAMERA & MANUAL QR SCANNER LOGIC ---
+    function forcePlayStream() {
+      const video = document.getElementById("remote-video");
+      if (currentStream) {
+        video.srcObject = currentStream;
+        video.play();
+        video.classList.remove("hidden");
+        document.getElementById("play-overlay").classList.add("hidden");
+        log("LIVE STREAM ACTIVE");
+      }
+    }
+
+    // --- 2. CAMERA LOGIC ---
     async function setupCamera() {
       document.getElementById("menu").classList.add("hidden");
       document.getElementById("camera-box").classList.remove("hidden");
@@ -114,7 +153,6 @@
         video.play();
         log("Point camera directly at QR Code");
 
-        // Scan frame-by-frame using jsQR
         let scanning = true;
         const scanFrame = () => {
           if (!scanning) return;
@@ -129,7 +167,7 @@
 
             if (code && code.data && code.data.startsWith("cam-")) {
               scanning = false;
-              log("QR Code Scanned! Connecting...");
+              log("Scanned! Broadcasting live stream...");
               connectToViewer(code.data, stream);
               return;
             }
@@ -140,24 +178,27 @@
         requestAnimationFrame(scanFrame);
 
       } catch (err) {
-        log("Camera Permission Error: " + err.message);
+        log("Camera Error: " + err.message);
       }
     }
 
     function connectToViewer(targetId, cameraStream) {
       peer = new Peer({
         config: {
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+          iceServers: [
+            { urls: "stun:stun.l.google.com:19302" },
+            { urls: "stun:stun1.l.google.com:19302" }
+          ]
         }
       });
 
       peer.on("open", () => {
-        log("Dialing Viewer: " + targetId);
+        log("Connecting stream to PC...");
         peer.call(targetId, cameraStream);
-        log("Streaming live to screen!");
+        log("Streaming active on PC!");
       });
 
-      peer.on("error", (err) => log("Camera Error: " + err.type));
+      peer.on("error", (err) => log("Camera Peer Error: " + err.type));
     }
   </script>
 </body>
