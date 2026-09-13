@@ -3,63 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Browser Security Cam (Alfred Clone)</title>
+  <title>Browser Security Cam</title>
   
-  <!-- External Libraries for WebRTC Connection & QR Scanning -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
+    * { box-sizing: border-box; }
     body { 
-      font-family: Arial, sans-serif; 
-      background: #121212; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      background: #111; 
       color: #fff; 
       text-align: center; 
       margin: 0; 
-      padding: 20px; 
+      padding: 15px; 
     }
-    h1 { color: #00e676; }
+    h1 { color: #00e676; margin-bottom: 5px; }
     .container { 
-      max-width: 600px; 
+      max-width: 500px; 
       margin: 0 auto; 
       background: #1e1e1e; 
       padding: 20px; 
       border-radius: 12px; 
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     }
     button { 
       background: #00e676; 
       border: none; 
-      padding: 12px 24px; 
+      padding: 14px 20px; 
       font-size: 16px; 
       font-weight: bold; 
       color: #000;
-      border-radius: 6px; 
+      border-radius: 8px; 
       cursor: pointer; 
-      margin: 10px; 
-      transition: 0.2s;
+      margin: 8px 0; 
+      width: 100%;
     }
-    button:hover { background: #00c853; }
     #qrcode { 
       display: inline-block; 
       background: white; 
-      padding: 16px; 
+      padding: 12px; 
       border-radius: 8px; 
-      margin-top: 15px; 
+      margin: 15px 0; 
     }
+    #qrcode img { display: block; margin: 0 auto; }
     video { 
       width: 100%; 
-      max-height: 450px;
-      border-radius: 8px; 
       background: #000; 
-      margin-top: 15px; 
+      border-radius: 8px; 
+      margin-top: 10px;
     }
     #status { 
-      margin-top: 10px; 
-      font-weight: bold; 
+      margin: 10px 0; 
+      padding: 8px;
+      border-radius: 6px;
+      background: #2a2a2a;
       color: #ffeb3b; 
-      font-size: 18px;
+      font-weight: 500;
+      font-size: 15px;
     }
     .hidden { display: none !important; }
   </style>
@@ -68,23 +69,24 @@
 
   <div class="container">
     <h1>Web Security Camera</h1>
-    <div id="status">Select mode to begin</div>
+    <div id="status">Select mode to start</div>
 
     <div id="mode-selection">
-      <button onclick="startViewer()">Monitor / Viewer (PC/Phone 1)</button>
-      <button onclick="startCamera()">Camera Streamer (Phone 2)</button>
+      <button onclick="startViewer()">Monitor / Viewer (PC)</button>
+      <button onclick="startCamera()">Camera Streamer (Phone)</button>
     </div>
 
-    <!-- VIEWER MODE PANEL -->
+    <!-- VIEWER MODE -->
     <div id="viewer-panel" class="hidden">
-      <h3>Viewer Mode</h3>
-      <div id="qrcode"></div>
-      <video id="remote-video" autoplay playsinline controls class="hidden"></video>
+      <div id="qr-container">
+        <p style="margin: 5px 0;">Scan this with your phone camera:</p>
+        <div id="qrcode"></div>
+      </div>
+      <video id="remote-video" autoplay playsinline muted></video>
     </div>
 
-    <!-- CAMERA MODE PANEL -->
+    <!-- CAMERA MODE -->
     <div id="camera-panel" class="hidden">
-      <h3>Camera Mode</h3>
       <div id="reader"></div>
       <video id="local-video" autoplay playsinline muted class="hidden"></video>
     </div>
@@ -93,103 +95,128 @@
   <script>
     let peer = null;
 
-    // Google STUN Servers to route video through firewalls and mobile data
+    // Multiple STUN servers for reliable NAT Traversal across networks
     const peerConfig = {
+      debug: 1,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' }
         ]
       }
     };
 
-    function updateStatus(msg) {
+    function setStatus(msg) {
       document.getElementById("status").innerText = msg;
     }
 
-    // --- 1. VIEWER LOGIC ---
+    // --- VIEWER LOGIC ---
     function startViewer() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("viewer-panel").classList.remove("hidden");
-      updateStatus("Generating QR code...");
+      setStatus("Initializing signaling server...");
 
-      // Unique random ID for connection room
-      const viewerId = "alfred-" + Math.floor(100000 + Math.random() * 900000);
-      peer = new Peer(viewerId, peerConfig);
+      // Generate clean random 6-character ID
+      const cleanId = "cam-" + Math.random().toString(36).substring(2, 8);
+      peer = new Peer(cleanId, peerConfig);
 
       peer.on("open", (id) => {
         document.getElementById("qrcode").innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), id);
-        updateStatus("Waiting for phone to scan QR code...");
+        new QRCode(document.getElementById("qrcode"), {
+          text: id,
+          width: 200,
+          height: 200
+        });
+        setStatus("Waiting for phone scan...");
       });
 
+      // Handle incoming video calls
       peer.on("call", (call) => {
-        updateStatus("Camera detected! Connecting stream...");
-        
-        // Answer call with no outgoing stream
-        call.answer();
+        setStatus("Phone connected! Loading stream...");
+        call.answer(); // Answer without sending return video
 
         call.on("stream", (remoteStream) => {
-          updateStatus("Live Stream Connected!");
+          setStatus("LIVE STREAM ACTIVE");
+          document.getElementById("qr-container").classList.add("hidden");
           
-          // Hide QR Code and display video player
-          document.getElementById("qrcode").classList.add("hidden");
           const videoElement = document.getElementById("remote-video");
-          videoElement.classList.remove("hidden");
-          
           videoElement.srcObject = remoteStream;
-          videoElement.muted = true; // Required for mobile/browser autoplay compliance
-
-          // Force stream to play
-          videoElement.play().catch(() => {
-            updateStatus("Tap the video box to play stream!");
-          });
+          
+          // Force playback
+          const playPromise = videoElement.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {
+              setStatus("Stream Ready! Tap video player to play.");
+            });
+          }
         });
-
-        call.on("error", (err) => updateStatus("Connection Error: " + err));
       });
+
+      peer.on("error", (err) => setStatus("Viewer Error: " + err.type));
     }
 
-    // --- 2. CAMERA LOGIC ---
+    // --- CAMERA LOGIC ---
     function startCamera() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("camera-panel").classList.remove("hidden");
-      updateStatus("Point camera at the QR code on the monitor screen");
+      setStatus("Point camera at QR code");
 
       peer = new Peer(peerConfig);
 
-      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-      html5QrcodeScanner.render((qrCodeText) => {
-        html5QrcodeScanner.clear(); // Stop scanning on success
-        updateStatus("QR Scanned. Accessing camera...");
-        connectAndStream(qrCodeText);
+      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+        fps: 10, 
+        qrbox: { width: 220, height: 220 } 
+      });
+
+      html5QrcodeScanner.render((targetPeerId) => {
+        html5QrcodeScanner.clear();
+        setStatus("QR Recognized. Acquiring camera...");
+        connectAndStream(targetPeerId);
       });
     }
 
     async function connectAndStream(targetPeerId) {
+      let stream = null;
+      
+      // Try grabbing environmental (rear) camera first, then fallback to default
       try {
-        // Request back camera access with fallback
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
-        }).catch(async () => {
-          return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         });
-
-        const localVideo = document.getElementById("local-video");
-        localVideo.srcObject = stream;
-        localVideo.classList.remove("hidden");
-        document.getElementById("reader").classList.add("hidden");
-
-        updateStatus("Streaming live video to Viewer...");
-        
-        // Initiate call to target peer ID extracted from QR code
-        peer.call(targetPeerId, stream);
-
-      } catch (err) {
-        updateStatus("Camera Error: " + err.message);
+      } catch (e1) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (e2) {
+          setStatus("Camera permission denied!");
+          return;
+        }
       }
+
+      // Display camera locally on the phone
+      const localVideo = document.getElementById("local-video");
+      localVideo.srcObject = stream;
+      localVideo.classList.remove("hidden");
+      document.getElementById("reader").classList.add("hidden");
+
+      setStatus("Dialing Viewer target...");
+
+      // Establish media connection
+      const call = peer.call(targetPeerId, stream);
+
+      if (!call) {
+        setStatus("Failed to create WebRTC call object.");
+        return;
+      }
+
+      setStatus("Streaming live to Viewer!");
+
+      peer.on("error", (err) => {
+        setStatus("Camera Peer Error: " + err.type);
+      });
     }
   </script>
 </body>
