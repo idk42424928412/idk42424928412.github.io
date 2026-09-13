@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Browser Security Cam</title>
-  
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+  <!-- External Libraries: Socket.io, QRCode, HTML5 Scanner -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -21,7 +22,7 @@
     }
     h1 { color: #00e676; margin-bottom: 10px; }
     .container { 
-      max-width: 600px; 
+      max-width: 500px; 
       margin: 0 auto; 
       background: #1e1e1e; 
       padding: 20px; 
@@ -46,7 +47,8 @@
       border-radius: 8px; 
       margin: 15px 0; 
     }
-    video { 
+    #qrcode img { display: block; margin: 0 auto; }
+    #stream-canvas, #local-video { 
       width: 100%; 
       max-height: 450px;
       background: #000; 
@@ -82,28 +84,21 @@
         <p>Scan with your phone camera:</p>
         <div id="qrcode"></div>
       </div>
-      <video id="remote-video" autoplay playsinline muted controls class="hidden"></video>
+      <img id="stream-canvas" class="hidden" alt="Live Feed" />
     </div>
 
     <!-- CAMERA MODE -->
     <div id="camera-panel" class="hidden">
       <div id="reader"></div>
       <video id="local-video" autoplay playsinline muted class="hidden"></video>
+      <canvas id="hidden-canvas" class="hidden"></canvas>
     </div>
   </div>
 
   <script>
-    let peer = null;
-
-    const peerConfig = {
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
-        ]
-      }
-    };
+    // Public WebSockets Signaling & Relay server
+    const socket = io("https://pie-host.com", { transports: ["websocket"] });
+    let roomId = "";
 
     function updateStatus(msg) {
       document.getElementById("status").innerText = msg;
@@ -113,48 +108,25 @@
     function startViewer() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("viewer-panel").classList.remove("hidden");
-      updateStatus("Generating QR Code...");
+      updateStatus("Generating Room Code...");
 
-      const viewerId = "alfred-" + Math.floor(100000 + Math.random() * 900000);
-      peer = new Peer(viewerId, peerConfig);
+      roomId = "room-" + Math.floor(100000 + Math.random() * 900000);
 
-      peer.on("open", (id) => {
-        document.getElementById("qrcode").innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), { text: id, width: 200, height: 200 });
-        updateStatus("Waiting for phone scan...");
-      });
+      // Display QR Code with room ID
+      document.getElementById("qrcode").innerHTML = "";
+      new QRCode(document.getElementById("qrcode"), { text: roomId, width: 200, height: 200 });
+      updateStatus("Waiting for phone to scan QR...");
 
-      peer.on("call", (call) => {
-        updateStatus("Camera connected! Requesting video feed...");
+      socket.emit("join-room", roomId);
 
-        // Explicitly answer the WebRTC call
-        call.answer();
-
-        call.on("stream", (remoteStream) => {
-          updateStatus("Live Stream Connected!");
-
-          // Hide QR code and reveal video player
-          document.getElementById("qr-wrapper").classList.add("hidden");
-          const videoElement = document.getElementById("remote-video");
-          videoElement.classList.remove("hidden");
-
-          // Bind stream to element
-          videoElement.srcObject = remoteStream;
-
-          // Event triggers to bypass browser playback restrictions
-          videoElement.onloadedmetadata = () => {
-            videoElement.play().catch(err => {
-              updateStatus("Click the black video box to play the stream!");
-            });
-          };
-
-          // Backup trigger if metadata event fails to fire
-          setTimeout(() => {
-            if (videoElement.paused) {
-              videoElement.play().catch(() => {});
-            }
-          }, 1000);
-        });
+      // Listen for video frame broadcasts from the phone
+      socket.on("video-frame", (frameData) => {
+        updateStatus("LIVE STREAM ACTIVE");
+        document.getElementById("qr-wrapper").classList.add("hidden");
+        
+        const imgDisplay = document.getElementById("stream-canvas");
+        imgDisplay.classList.remove("hidden");
+        imgDisplay.src = frameData;
       });
     }
 
@@ -162,43 +134,69 @@
     function startCamera() {
       document.getElementById("mode-selection").classList.add("hidden");
       document.getElementById("camera-panel").classList.remove("hidden");
-      updateStatus("Point phone camera at the QR code");
-
-      peer = new Peer(peerConfig);
+      updateStatus("Point camera at the QR code");
 
       const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 220 });
-      html5QrcodeScanner.render((targetPeerId) => {
+      html5QrcodeScanner.render((scannedRoomId) => {
         html5QrcodeScanner.clear();
-        updateStatus("QR Code Scanned! Opening camera...");
-        connectAndStream(targetPeerId);
+        updateStatus("QR Code Scanned! Connecting...");
+        roomId = scannedRoomId;
+        socket.emit("join-room", roomId);
+        startBroadcasting();
       });
     }
 
-    async function connectAndStream(targetPeerId) {
+    async function startBroadcasting() {
       try {
-        // Request video stream from rear camera with fallback
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } },
           audio: false
         }).catch(async () => {
           return await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         });
 
-        // Show stream locally on phone screen
-        const localVideo = document.getElementById("local-video");
-        localVideo.srcObject = stream;
-        localVideo.classList.remove("hidden");
+        const video = document.getElementById("local-video");
+        video.srcObject = stream;
+        video.classList.remove("hidden");
         document.getElementById("reader").classList.add("hidden");
 
-        updateStatus("Streaming live to PC...");
-        
-        // Initiate connection to viewer
-        peer.call(targetPeerId, stream);
+        const canvas = document.getElementById("hidden-canvas");
+        const ctx = canvas.getContext("2d");
+
+        updateStatus("Streaming live feed...");
+
+        // Capture frames and emit over WebSocket at ~15 FPS
+        setInterval(() => {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = 480;
+            canvas.height = (video.videoHeight / video.videoWidth) * 480;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Compress frame to JPEG
+            const frame = canvas.toDataURL("image/jpeg", 0.5);
+            socket.emit("video-frame", { room: roomId, frame: frame });
+          }
+        }, 66);
 
       } catch (err) {
         updateStatus("Camera Error: " + err.message);
       }
     }
+
+    // Socket frame handler mapping
+    socket.on("video-frame-relay", (frame) => {
+      const imgDisplay = document.getElementById("stream-canvas");
+      if (imgDisplay) {
+        imgDisplay.classList.remove("hidden");
+        document.getElementById("qr-wrapper").classList.add("hidden");
+        imgDisplay.src = frame;
+        updateStatus("LIVE STREAM ACTIVE");
+      }
+    });
+
+    socket.on("connect", () => {
+      if (roomId) socket.emit("join-room", roomId);
+    });
   </script>
 </body>
 </html>
