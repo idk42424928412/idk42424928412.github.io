@@ -1,564 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Patchwork — Your codebase, continuously secured</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --ink: #12151A;
-    --ink-2: #191D25;
-    --ink-3: #20242E;
-    --paper: #ECEEE6;
-    --muted: #8C93A3;
-    --muted-2: #5B6170;
-    --green: #46BD66;
-    --green-dim: #2C6E3D;
-    --red: #EC6A63;
-    --red-dim: #6E332F;
-    --amber: #E3A008;
-    --line: #2A2F3A;
-    --line-soft: #22262F;
-    --sans: 'Inter', -apple-system, sans-serif;
-    --mono: 'JetBrains Mono', ui-monospace, monospace;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
-  body{
-    background:var(--ink);
-    color:var(--paper);
-    font-family:var(--sans);
-    line-height:1.5;
-    -webkit-font-smoothing:antialiased;
-  }
-  ::selection{background:var(--green-dim);color:var(--paper);}
-  a{color:inherit;text-decoration:none;}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Browser Security Cam (Alfred Clone)</title>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
 
-  .wrap{max-width:1180px;margin:0 auto;padding:0 32px;}
-  .gutter-row{display:grid;grid-template-columns:52px 1fr;}
-  .gutter-num{
-    font-family:var(--mono);
-    font-size:12px;
-    color:var(--muted-2);
-    padding-top:4px;
-    user-select:none;
-  }
-
-  /* ---------- NAV ---------- */
-  nav{
-    position:sticky;top:0;z-index:50;
-    background:rgba(18,21,26,0.88);
-    backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line-soft);
-  }
-  nav .inner{
-    display:flex;align-items:center;justify-content:space-between;
-    height:64px;
-  }
-  .logo{
-    display:flex;align-items:center;gap:10px;
-    font-weight:700;font-size:16px;letter-spacing:-0.01em;
-  }
-  .logo .mark{
-    font-family:var(--mono);color:var(--green);font-size:16px;
-    border:1px solid var(--line);padding:3px 7px;border-radius:4px;
-  }
-  .navlinks{display:flex;gap:36px;font-size:14px;color:var(--muted);}
-  .navlinks a:hover{color:var(--paper);}
-  .navcta{
-    font-size:13.5px;font-weight:600;color:var(--ink);
-    background:var(--paper);padding:9px 16px;border-radius:4px;
-  }
-  .navcta:hover{background:#fff;}
-  @media(max-width:760px){ .navlinks{display:none;} }
-
-  /* ---------- HERO ---------- */
-  header.hero{padding:96px 0 110px;border-bottom:1px solid var(--line-soft);}
-  .hero-grid{
-    display:grid;grid-template-columns:1.05fr 0.95fr;gap:64px;align-items:center;
-  }
-  @media(max-width:900px){ .hero-grid{grid-template-columns:1fr;gap:56px;} }
-
-  .eyebrow-code{
-    font-family:var(--mono);font-size:13px;color:var(--green);
-    margin-bottom:22px; display:flex; align-items:center; gap:8px;
-  }
-  .eyebrow-code::before{content:"$";color:var(--muted-2);}
-
-  h1{
-    font-size:52px;line-height:1.06;font-weight:700;letter-spacing:-0.025em;
-    max-width:560px;
-  }
-  @media(max-width:520px){ h1{font-size:38px;} }
-  h1 .soft{color:var(--muted);}
-
-  .hero-sub{
-    margin-top:22px;max-width:480px;font-size:17px;color:var(--muted);line-height:1.6;
-  }
-  .cta-row{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap;}
-  .btn-primary{
-    background:var(--green);color:#0B1A0F;font-weight:600;font-size:14.5px;
-    padding:13px 22px;border-radius:5px;
-    border:1px solid var(--green);
-  }
-  .btn-primary:hover{background:#54cf76;}
-  .btn-secondary{
-    font-weight:600;font-size:14.5px;color:var(--paper);
-    padding:13px 22px;border-radius:5px;border:1px solid var(--line);
-  }
-  .btn-secondary:hover{border-color:#454c5c;}
-
-  .hero-meta{
-    margin-top:38px;display:flex;gap:28px;font-size:12.5px;color:var(--muted-2);
-    font-family:var(--mono);flex-wrap:wrap;
-  }
-
-  /* Terminal mock */
-  .term{
-    background:var(--ink-2);border:1px solid var(--line);border-radius:8px;
-    overflow:hidden;box-shadow:0 30px 60px -30px rgba(0,0,0,0.6);
-  }
-  .term-bar{
-    display:flex;align-items:center;gap:7px;padding:11px 14px;
-    border-bottom:1px solid var(--line);
-  }
-  .term-bar span{width:10px;height:10px;border-radius:50%;background:#3A3F4B;}
-  .term-title{
-    margin-left:8px;font-family:var(--mono);font-size:12px;color:var(--muted-2);
-  }
-  .term-body{padding:20px 22px 24px;font-family:var(--mono);font-size:13px;line-height:1.85;}
-  .t-dim{color:var(--muted-2);}
-  .t-warn{color:var(--amber);}
-  .t-del{color:var(--red);background:rgba(236,106,99,0.08);display:block;padding:2px 6px;border-radius:3px;margin:2px 0;}
-  .t-add{color:var(--green);background:rgba(70,189,102,0.08);display:block;padding:2px 6px;border-radius:3px;margin:2px 0;}
-  .t-ok{color:var(--green);}
-  .t-line{display:block;margin:1px 0;}
-  .cursor{display:inline-block;width:7px;height:14px;background:var(--green);vertical-align:middle;animation:blink 1.1s steps(1) infinite;}
-  @keyframes blink{50%{opacity:0;}}
-
-  /* ---------- SECTION SHARED ---------- */
-  section{padding:96px 0;border-bottom:1px solid var(--line-soft);}
-  .section-head{max-width:600px;margin-bottom:56px;}
-  .kicker{
-    font-family:var(--mono);font-size:12.5px;color:var(--green);margin-bottom:14px;
-  }
-  h2{font-size:33px;font-weight:700;letter-spacing:-0.02em;line-height:1.18;}
-  .section-sub{margin-top:14px;color:var(--muted);font-size:15.5px;max-width:520px;line-height:1.65;}
-
-  /* ---------- STAT BAR ---------- */
-  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;}
-  .stat{background:var(--ink);padding:34px 30px;}
-  .stat-num{font-size:38px;font-weight:800;letter-spacing:-0.02em;font-family:var(--mono);}
-  .stat-num .u{font-size:20px;color:var(--muted);}
-  .stat-label{margin-top:8px;color:var(--muted);font-size:14px;line-height:1.5;}
-  @media(max-width:760px){ .stats{grid-template-columns:1fr;} }
-
-  /* ---------- PIPELINE ---------- */
-  .pipeline{
-    display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:8px;
-  }
-  .pnode{
-    flex:1 1 0;min-width:200px;
-    background:var(--ink-2);border:1px solid var(--line);border-radius:6px;
-    padding:22px 20px;position:relative;
-  }
-  .pnode + .pnode{margin-left:34px;}
-  .pnode::before{
-    content:"→";position:absolute;left:-30px;top:50%;transform:translateY(-50%);
-    color:var(--muted-2);font-family:var(--mono);font-size:18px;
-  }
-  .pnode .ptag{font-family:var(--mono);font-size:11px;color:var(--green);margin-bottom:10px;}
-  .pnode h4{font-size:15.5px;font-weight:600;margin-bottom:8px;}
-  .pnode p{font-size:13px;color:var(--muted);line-height:1.55;}
-  .ploop{
-    text-align:center;font-family:var(--mono);font-size:12px;color:var(--muted-2);
-    margin-top:18px;
-  }
-  @media(max-width:900px){
-    .pipeline{flex-direction:column;}
-    .pnode + .pnode{margin-left:0;margin-top:34px;}
-    .pnode::before{content:"↓";left:20px;top:-28px;transform:none;}
-  }
-
-  /* ---------- STEPS (gutter numbered) ---------- */
-  .step{
-    display:grid;grid-template-columns:52px 1fr;
-    border-top:1px solid var(--line-soft);
-    padding:26px 0;
-    gap:20px;
-  }
-  .step:last-child{border-bottom:1px solid var(--line-soft);}
-  .step .num{font-family:var(--mono);color:var(--muted-2);font-size:13px;padding-top:2px;}
-  .step h4{font-size:17px;font-weight:600;margin-bottom:6px;}
-  .step p{color:var(--muted);font-size:14.5px;max-width:640px;line-height:1.65;}
-  .step .tools{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
-  .tool-pill{
-    font-family:var(--mono);font-size:11.5px;color:var(--muted);
-    border:1px solid var(--line);padding:3px 9px;border-radius:20px;
-  }
-
-  /* ---------- COMPARE (static vs ai) ---------- */
-  .compare{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-soft);border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;}
-  .compare > div{background:var(--ink);padding:32px;}
-  .compare h4{font-family:var(--mono);font-size:13px;margin-bottom:16px;}
-  .compare.c1 h4{color:var(--red);}
-  .compare .c-static h4{color:var(--amber);}
-  .compare .c-ai h4{color:var(--green);}
-  .compare ul{list-style:none;}
-  .compare li{
-    font-size:14px;color:var(--muted);padding:9px 0;border-top:1px solid var(--line-soft);
-  }
-  .compare li:first-of-type{border-top:none;}
-  @media(max-width:760px){ .compare{grid-template-columns:1fr;} }
-
-  /* ---------- STACK ---------- */
-  .stacklist{border:1px solid var(--line-soft);border-radius:8px;overflow:hidden;}
-  .stackrow{
-    display:grid;grid-template-columns:190px 1fr;
-    padding:18px 24px;border-top:1px solid var(--line-soft);
-    align-items:baseline;gap:16px;
-  }
-  .stackrow:first-child{border-top:none;}
-  .stackrow .layer{font-family:var(--mono);font-size:12px;color:var(--muted-2);}
-  .stackrow .items{font-size:14.5px;color:var(--paper);}
-  .stackrow .items span{color:var(--muted);}
-  @media(max-width:600px){
-    .stackrow{grid-template-columns:1fr;gap:4px;}
-  }
-
-  /* ---------- PRICING ---------- */
-  .pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-  @media(max-width:900px){ .pricing{grid-template-columns:1fr;} }
-  .plan{
-    border:1px solid var(--line);border-radius:8px;padding:32px 28px;
-    display:flex;flex-direction:column;
-  }
-  .plan.featured{border-color:var(--green);background:linear-gradient(180deg,rgba(70,189,102,0.05),transparent 40%);}
-  .plan-name{font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:18px;}
-  .plan.featured .plan-name{color:var(--green);}
-  .plan-price{font-size:32px;font-weight:800;letter-spacing:-0.02em;}
-  .plan-price .per{font-size:14px;font-weight:500;color:var(--muted);}
-  .plan-desc{margin-top:10px;color:var(--muted);font-size:13.5px;line-height:1.55;min-height:40px;}
-  .plan hr{border:none;border-top:1px solid var(--line-soft);margin:22px 0;}
-  .plan ul{list-style:none;flex:1;}
-  .plan li{
-    font-size:13.5px;color:var(--muted);padding:7px 0;padding-left:18px;position:relative;
-  }
-  .plan li::before{content:"+";position:absolute;left:0;color:var(--green);font-family:var(--mono);}
-  .plan-btn{
-    margin-top:24px;text-align:center;padding:11px;border-radius:5px;
-    font-weight:600;font-size:14px;border:1px solid var(--line);
-  }
-  .plan.featured .plan-btn{background:var(--green);color:#0B1A0F;border-color:var(--green);}
-  .plan-btn:hover{border-color:#454c5c;}
-  .plan.featured .plan-btn:hover{background:#54cf76;}
-
-  /* ---------- FOOTER CTA ---------- */
-  .final-cta{text-align:left;padding:110px 0 100px;border-bottom:none;}
-  .final-cta h2{font-size:38px;max-width:560px;}
-  footer{padding:34px 0;}
-  .foot-inner{
-    display:flex;justify-content:space-between;align-items:center;
-    font-size:13px;color:var(--muted-2);flex-wrap:wrap;gap:12px;
-  }
-</style>
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; text-align: center; margin: 0; padding: 20px; }
+    h1 { color: #00e676; }
+    .container { max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 12px; }
+    button { background: #00e676; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; margin: 10px; }
+    button:hover { background: #00c853; }
+    #qrcode { display: inline-block; background: white; padding: 16px; border-radius: 8px; margin-top: 15px; }
+    video { width: 100%; border-radius: 8px; background: #000; margin-top: 15px; }
+    #reader { width: 100%; margin-top: 15px; }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
 
-<nav>
-  <div class="wrap inner">
-    <div class="logo"><span class="mark">&gt;_</span> Patchwork</div>
-    <div class="navlinks">
-      <a href="#pipeline">How it works</a>
-      <a href="#detection">Detection</a>
-      <a href="#stack">Stack</a>
-      <a href="#pricing">Pricing</a>
-    </div>
-    <a href="#pricing" class="navcta">Start a free scan</a>
-  </div>
-</nav>
+  <div class="container">
+    <h1>Web Security Camera</h1>
+    <p>Select your mode for this device:</p>
 
-<header class="hero">
-  <div class="wrap hero-grid">
-    <div>
-      <div class="eyebrow-code">patchwork scan --repo your-org/monolith</div>
-      <h1>Your codebase fixes <span class="soft">its own</span> security holes.</h1>
-      <p class="hero-sub">Patchwork reads your repository, finds the vulnerabilities and dead patterns your team hasn't gotten to yet, writes the fix, proves it with your own test suite, and opens a pull request. No dashboards to babysit.</p>
-      <div class="cta-row">
-        <a href="#pricing" class="btn-primary">Start a free scan</a>
-        <a href="#pipeline" class="btn-secondary">See how it works</a>
-      </div>
-      <div class="hero-meta">
-        <span>Works with GitHub &amp; GitLab</span>
-        <span>Free for public repos</span>
-        <span>SOC 2 available</span>
-      </div>
+    <div id="mode-selection">
+      <button onclick="startViewer()">Monitor / Viewer (PC or Phone 1)</button>
+      <button onclick="startCamera()">Camera Streamer (Phone 2)</button>
     </div>
 
-    <div class="term">
-      <div class="term-bar">
-        <span></span><span></span><span></span>
-        <div class="term-title">patchwork · pull_request_#218.diff</div>
-      </div>
-      <div class="term-body">
-        <span class="t-line t-dim">scanning 247 files across 4 services…</span>
-        <span class="t-line t-warn">⚠ hardcoded API key — config/db.js:14</span>
-        <span class="t-line t-warn">⚠ SQL injection vector — routes/user.js:88</span>
-        <span class="t-line t-dim">generating patch…</span>
-        <span class="t-del">- db.connect(API_KEY_LITERAL)</span>
-        <span class="t-add">+ db.connect(process.env.DB_KEY)</span>
-        <span class="t-line t-dim">running pytest in sandbox…</span>
-        <span class="t-line t-ok">✓ 42 / 42 tests passed</span>
-        <span class="t-line t-ok">✓ opened PR #218 — 2 issues fixed<span class="cursor"></span></span>
-      </div>
+    <!-- VIEWER MODE -->
+    <div id="viewer-panel" class="hidden">
+      <h3>Viewer Mode</h3>
+      <p>Scan this QR code with your Camera phone:</p>
+      <div id="qrcode"></div>
+      <video id="remote-video" autoplay playsinline></video>
+    </div>
+
+    <!-- CAMERA MODE -->
+    <div id="camera-panel" class="hidden">
+      <h3>Camera Mode</h3>
+      <p id="scan-instructions">Point camera at the QR code on the viewer screen.</p>
+      <div id="reader"></div>
+      <video id="local-video" autoplay playsinline muted class="hidden"></video>
     </div>
   </div>
-</header>
 
-<section>
-  <div class="wrap">
-    <div class="stats">
-      <div class="stat"><div class="stat-num">$40M<span class="u">+</span></div><div class="stat-label">spent yearly by mid-size engineering orgs just keeping legacy code alive</div></div>
-      <div class="stat"><div class="stat-num">23<span class="u">%</span></div><div class="stat-label">of a typical sprint spent on maintenance and patching, not new features</div></div>
-      <div class="stat"><div class="stat-num">0</div><div class="stat-label">pull requests merged without your existing test suite passing first</div></div>
-    </div>
-  </div>
-</section>
+  <script>
+    let peer = null;
 
-<section id="pipeline">
-  <div class="wrap">
-    <div class="section-head">
-      <div class="kicker">system architecture</div>
-      <h2>One loop, closed automatically.</h2>
-      <p class="section-sub">Patchwork connects once and then runs quietly in the background — on every push, or on a schedule you set.</p>
-    </div>
-    <div class="pipeline">
-      <div class="pnode">
-        <div class="ptag">01 — ingest</div>
-        <h4>Repository &amp; webhook</h4>
-        <p>Connects as a GitHub or GitLab App. Reads the AST, dependency tree and commit history on push or on a CRON schedule.</p>
-      </div>
-      <div class="pnode">
-        <div class="ptag">02 — detect</div>
-        <h4>Scanner &amp; AST engine</h4>
-        <p>Semgrep and Tree-sitter run deterministic checks; an LLM reads across files for architectural anti-patterns.</p>
-      </div>
-      <div class="pnode">
-        <div class="ptag">03 — patch</div>
-        <h4>Refactoring engine</h4>
-        <p>Writes a minimal patch scoped to the one issue found — nothing else in the file is touched.</p>
-      </div>
-      <div class="pnode">
-        <div class="ptag">04 — verify</div>
-        <h4>Sandbox test run</h4>
-        <p>The patch runs against your real test suite inside an isolated container. Failing tests go back to the patch engine.</p>
-      </div>
-      <div class="pnode">
-        <div class="ptag">05 — ship</div>
-        <h4>Pull request</h4>
-        <p>Opens a PR with the vulnerability explained, a diff summary, and proof the tests passed.</p>
-      </div>
-    </div>
-    <div class="ploop">04 loops back into 03 until every test passes — patches never ship unproven</div>
-  </div>
-</section>
+    // --- 1. VIEWER LOGIC ---
+    function startViewer() {
+      document.getElementById("mode-selection").classList.add("hidden");
+      document.getElementById("viewer-panel").classList.remove("hidden");
 
-<section>
-  <div class="wrap">
-    <div class="section-head">
-      <div class="kicker">how it works</div>
-      <h2>What happens between a push and a pull request.</h2>
-    </div>
+      // Generate unique Peer ID
+      const viewerId = "alfred-cam-" + Math.floor(1000 + Math.random() * 9000);
+      peer = new Peer(viewerId);
 
-    <div class="step">
-      <div class="num">1</div>
-      <div>
-        <h4>Repo ingestion &amp; parsing</h4>
-        <p>Patchwork connects through GitHub App or GitLab webhook permissions. Every push — or a nightly CRON run — triggers a fresh read of the AST, the dependency graph, and recent commit history.</p>
-      </div>
-    </div>
+      peer.on("open", (id) => {
+        // Render QR Code containing the Viewer ID
+        new QRCode(document.getElementById("qrcode"), id);
+      });
 
-    <div class="step">
-      <div class="num">2</div>
-      <div>
-        <h4>Vulnerability &amp; anti-pattern detection</h4>
-        <p>Deterministic static analysis catches the known offenders instantly — hardcoded secrets, SQL injection vectors, prototype pollution. A second pass uses AI to read across multiple files at once, where race conditions and unhandled promise rejections actually hide.</p>
-        <div class="tools">
-          <span class="tool-pill">Semgrep</span>
-          <span class="tool-pill">Tree-sitter</span>
-          <span class="tool-pill">SonarQube rules</span>
-        </div>
-      </div>
-    </div>
+      // Listen for incoming call from camera phone
+      peer.on("call", (call) => {
+        call.answer(); // Answer without sending video back
+        call.on("stream", (remoteStream) => {
+          document.getElementById("qrcode").classList.add("hidden");
+          const videoElement = document.getElementById("remote-video");
+          videoElement.srcObject = remoteStream;
+        });
+      });
+    }
 
-    <div class="step">
-      <div class="num">3</div>
-      <div>
-        <h4>Automated fix generation</h4>
-        <p>The patch addresses the one issue it found. Surrounding logic, formatting, and unrelated functions are left exactly as your team wrote them.</p>
-      </div>
-    </div>
+    // --- 2. CAMERA LOGIC ---
+    function startCamera() {
+      document.getElementById("mode-selection").classList.add("hidden");
+      document.getElementById("camera-panel").classList.remove("hidden");
 
-    <div class="step">
-      <div class="num">4</div>
-      <div>
-        <h4>Sandboxed verification</h4>
-        <p>Before anything reaches your repo, the patch runs inside an isolated container against your existing test suite. A failing run sends the error log straight back to the patch engine, which revises and tries again.</p>
-        <div class="tools">
-          <span class="tool-pill">npm test</span>
-          <span class="tool-pill">pytest</span>
-          <span class="tool-pill">cargo test</span>
-        </div>
-      </div>
-    </div>
+      peer = new Peer();
 
-    <div class="step">
-      <div class="num">5</div>
-      <div>
-        <h4>Clean pull request</h4>
-        <p>The PR explains the vulnerability in plain language, includes a diff summary, and shows the passing test run — so review takes minutes, not a meeting.</p>
-      </div>
-    </div>
-  </div>
-</section>
+      // Start QR Scanner
+      const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      html5QrcodeScanner.render((qrCodeText) => {
+        html5QrcodeScanner.clear(); // Stop scanning once scanned
+        document.getElementById("scan-instructions").innerText = "Connecting live stream...";
+        connectAndStream(qrCodeText);
+      });
+    }
 
-<section id="detection">
-  <div class="wrap">
-    <div class="section-head">
-      <div class="kicker">detection</div>
-      <h2>Two engines, because one alone misses things.</h2>
-      <p class="section-sub">Deterministic rules catch what's known. Reading across files catches what's structural.</p>
-    </div>
-    <div class="compare">
-      <div class="c-static">
-        <h4>static analysis</h4>
-        <ul>
-          <li>Hardcoded secrets and API keys</li>
-          <li>SQL injection vectors</li>
-          <li>Prototype pollution</li>
-          <li>Known-CVE dependency versions</li>
-          <li>Instant, deterministic, no false starts</li>
-        </ul>
-      </div>
-      <div class="c-ai">
-        <h4>ai ast analysis</h4>
-        <ul>
-          <li>Architectural anti-patterns across files</li>
-          <li>Race conditions between services</li>
-          <li>Unhandled promise rejections</li>
-          <li>Context a single-file linter can't see</li>
-          <li>Reasoning, not just pattern matching</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
+    async function connectAndStream(targetPeerId) {
+      try {
+        // Request access to phone's back camera
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: "environment" } },
+          audio: true
+        }).catch(async () => {
+          // Fallback to default camera if rear camera request fails
+          return await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        });
 
-<section id="stack">
-  <div class="wrap">
-    <div class="section-head">
-      <div class="kicker">under the hood</div>
-      <h2>Built on tools your team already trusts.</h2>
-    </div>
-    <div class="stacklist">
-      <div class="stackrow">
-        <div class="layer">frontend</div>
-        <div class="items">Next.js, TypeScript <span>— the dashboard where PRs, findings and repo settings live</span></div>
-      </div>
-      <div class="stackrow">
-        <div class="layer">backend core</div>
-        <div class="items">Node.js / TypeScript, Python (FastAPI) <span>— orchestrates scans, patches and PR creation</span></div>
-      </div>
-      <div class="stackrow">
-        <div class="layer">parsing</div>
-        <div class="items">tree-sitter, semgrep <span>— fast, multi-language structural analysis</span></div>
-      </div>
-      <div class="stackrow">
-        <div class="layer">reasoning</div>
-        <div class="items">Claude 3.5 Sonnet, GPT-4o <span>— structural edits and cross-file understanding</span></div>
-      </div>
-      <div class="stackrow">
-        <div class="layer">sandboxing</div>
-        <div class="items">Docker, E2B, Fly.io microVMs <span>— every patch is tested in isolation before it reaches you</span></div>
-      </div>
-      <div class="stackrow">
-        <div class="layer">integration</div>
-        <div class="items">GitHub API (Octokit) <span>— App permissions, webhooks, automated pull requests</span></div>
-      </div>
-    </div>
-  </div>
-</section>
+        // Display video locally on phone
+        const localVideo = document.getElementById("local-video");
+        localVideo.srcObject = stream;
+        localVideo.classList.remove("hidden");
+        document.getElementById("reader").classList.add("hidden");
 
-<section id="pricing">
-  <div class="wrap">
-    <div class="section-head">
-      <div class="kicker">pricing</div>
-      <h2>Free where code is open. Fair where it isn't.</h2>
-    </div>
-    <div class="pricing">
-      <div class="plan">
-        <div class="plan-name">developer</div>
-        <div class="plan-price">$0</div>
-        <div class="plan-desc">For public and open-source repositories.</div>
-        <hr>
-        <ul>
-          <li>Unlimited public repos</li>
-          <li>Static + AI detection</li>
-          <li>Sandboxed test verification</li>
-          <li>Public PR badge</li>
-        </ul>
-        <a href="#" class="plan-btn">Connect a repo</a>
-      </div>
-      <div class="plan featured">
-        <div class="plan-name">pro</div>
-        <div class="plan-price">$29<span class="per">–$99/mo</span></div>
-        <div class="plan-desc">For solo developers and small teams.</div>
-        <hr>
-        <ul>
-          <li>1–5 private repositories</li>
-          <li>Scheduled + on-push scans</li>
-          <li>Full detection &amp; patch engine</li>
-          <li>Email support</li>
-        </ul>
-        <a href="#" class="plan-btn">Start a free scan</a>
-      </div>
-      <div class="plan">
-        <div class="plan-name">team / enterprise</div>
-        <div class="plan-price">$299<span class="per">+/mo</span></div>
-        <div class="plan-desc">Self-hosted or cloud, for larger orgs.</div>
-        <hr>
-        <ul>
-          <li>SOC 2 compliant deployment</li>
-          <li>Custom rule configuration</li>
-          <li>SSO &amp; audit logs</li>
-          <li>Slack alert integration</li>
-        </ul>
-        <a href="#" class="plan-btn">Talk to sales</a>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="final-cta">
-  <div class="wrap">
-    <div class="kicker">get started</div>
-    <h2>Point it at a repo. See the first PR by tomorrow.</h2>
-    <div class="cta-row">
-      <a href="#pricing" class="btn-primary">Start a free scan</a>
-      <a href="#pipeline" class="btn-secondary">Read the architecture</a>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <div class="wrap foot-inner">
-    <div class="logo"><span class="mark">&gt;_</span> Patchwork</div>
-    <div>© 2026 Patchwork. Built for engineering teams who'd rather ship.</div>
-  </div>
-</footer>
-
+        // Call the Viewer ID found in QR code and send stream
+        peer.call(targetPeerId, stream);
+      } catch (err) {
+        alert("Camera error: " + err.message);
+      }
+    }
+  </script>
 </body>
 </html>
