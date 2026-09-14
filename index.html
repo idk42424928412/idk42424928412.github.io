@@ -1,4 +1,4 @@
-]<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -81,6 +81,15 @@
 
     button:active {
       transform: scale(0.98);
+    }
+
+    button.secondary {
+      background: #333;
+      color: #fff;
+    }
+
+    button.secondary:hover {
+      background: #444;
     }
 
 
@@ -167,7 +176,7 @@
 
 
     /*
-      Phone QR scanner.
+      Phone QR scanner / live preview.
     */
 
     #scanner-video {
@@ -183,6 +192,31 @@
       object-fit: cover;
 
       margin-top: 10px;
+    }
+
+    /*
+      Once streaming starts we no longer want the phone
+      to show a giant preview, but we must NOT use
+      display:none on the video element - some mobile
+      browsers (notably iOS Safari) throttle or stop
+      delivering camera frames to a video element that
+      is display:none, even though the underlying
+      MediaStreamTrack is still "live". That produces a
+      black remote video on the viewer even though
+      everything reports "connected" / "LIVE".
+
+      Instead we shrink it to a fully off-screen 1x1
+      element that is still "displayed" as far as the
+      browser is concerned.
+    */
+    #scanner-video.tiny-offscreen {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      left: -9999px;
+      top: -9999px;
     }
 
 
@@ -243,6 +277,37 @@
       font-size: 14px;
     }
 
+    /*
+      PIN lock overlay
+    */
+    #pin-box input {
+      width: 100%;
+      padding: 14px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 0;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 4px;
+    }
+
+    #pin-error {
+      color: #f44336;
+      font-size: 13px;
+      min-height: 18px;
+      margin-top: -4px;
+    }
+
+    #camera-controls {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #camera-controls button {
+      margin: 0;
+    }
+
   </style>
 
 </head>
@@ -273,9 +338,38 @@
         1. VIEW SCREEN (PC / Tablet)
       </button>
 
-      <button onclick="setupCamera()">
+      <button onclick="startCameraFlow()">
         2. CAMERA (Phone)
       </button>
+
+      <button class="secondary" onclick="openPinSetup()">
+        Set / Change Lock Code
+      </button>
+
+    </div>
+
+
+    <!-- ========================================================
+         PIN LOCK (shown before camera mode starts)
+         ======================================================== -->
+
+    <div id="pin-box" class="hidden">
+
+      <p id="pin-box-title">Enter lock code to start the camera</p>
+
+      <input
+        id="pin-input"
+        type="password"
+        inputmode="numeric"
+        maxlength="12"
+        placeholder="Code"
+      />
+
+      <div id="pin-error"></div>
+
+      <button onclick="submitPin()">Unlock</button>
+
+      <button class="secondary" onclick="cancelPin()">Cancel</button>
 
     </div>
 
@@ -367,6 +461,15 @@
       ></canvas>
 
 
+      <div id="camera-controls" class="hidden">
+
+        <button class="secondary" onclick="switchCamera()">
+          Switch Camera (Front/Back)
+        </button>
+
+      </div>
+
+
     </div>
 
 
@@ -390,6 +493,10 @@ let cameraStream = null;
 let currentCall = null;
 
 let scanning = false;
+
+let currentFacingMode = "environment";
+
+let pinPurpose = null; // "start" | "setup"
 
 
 /*
@@ -533,6 +640,143 @@ function setConnectionState(
   document.getElementById(
     "connection-info"
   ).innerText = message;
+
+}
+
+
+
+/*
+================================================================
+PIN LOCK
+================================================================
+
+This is a simple client-side lock so a stranger who opens the
+page on your phone can't just tap "CAMERA" and start streaming.
+It is stored in localStorage on the phone itself - it is NOT an
+account system and is not meant to stop a determined attacker
+who has access to the phone's browser storage / devtools.
+*/
+
+function getStoredPin() {
+
+  return localStorage.getItem("webcam_lock_code");
+
+}
+
+
+function openPinSetup() {
+
+  pinPurpose = "setup";
+
+  document.getElementById(
+    "pin-box-title"
+  ).innerText = getStoredPin()
+    ? "Enter a new lock code (leave blank to remove)"
+    : "Create a lock code for the camera";
+
+  document.getElementById("pin-input").value = "";
+
+  document.getElementById("pin-error").innerText = "";
+
+  hide("menu");
+
+  show("pin-box");
+
+}
+
+
+function startCameraFlow() {
+
+  const storedPin = getStoredPin();
+
+
+  if (!storedPin) {
+
+    /*
+     * No lock code has been set yet - go straight in.
+     */
+
+    setupCamera();
+
+    return;
+
+  }
+
+
+  pinPurpose = "start";
+
+  document.getElementById(
+    "pin-box-title"
+  ).innerText = "Enter lock code to start the camera";
+
+  document.getElementById("pin-input").value = "";
+
+  document.getElementById("pin-error").innerText = "";
+
+  hide("menu");
+
+  show("pin-box");
+
+}
+
+
+function submitPin() {
+
+  const entered =
+    document.getElementById("pin-input").value.trim();
+
+
+  if (pinPurpose === "setup") {
+
+    if (entered === "") {
+
+      localStorage.removeItem("webcam_lock_code");
+
+    } else {
+
+      localStorage.setItem("webcam_lock_code", entered);
+
+    }
+
+
+    hide("pin-box");
+
+    show("menu");
+
+    return;
+
+  }
+
+
+  /*
+   * pinPurpose === "start"
+   */
+
+  const storedPin = getStoredPin();
+
+
+  if (entered === storedPin) {
+
+    hide("pin-box");
+
+    setupCamera();
+
+  } else {
+
+    document.getElementById(
+      "pin-error"
+    ).innerText = "Incorrect code.";
+
+  }
+
+}
+
+
+function cancelPin() {
+
+  hide("pin-box");
+
+  show("menu");
 
 }
 
@@ -1541,6 +1785,8 @@ async function setupCamera() {
 
   hide("menu");
 
+  hide("pin-box");
+
   show("camera-box");
 
 
@@ -1572,33 +1818,8 @@ async function setupCamera() {
 
   try {
 
-    /*
-     * Request rear camera.
-     */
-
     cameraStream =
-      await navigator.mediaDevices
-        .getUserMedia({
-
-          video: {
-
-            facingMode: {
-              ideal: "environment"
-            },
-
-            width: {
-              ideal: 1280
-            },
-
-            height: {
-              ideal: 720
-            }
-
-          },
-
-          audio: false
-
-        });
+      await openCameraStream(currentFacingMode);
 
 
 
@@ -1783,11 +2004,21 @@ async function setupCamera() {
 
 
             /*
-             * Hide scanner.
+             * IMPORTANT:
+             *
+             * Do NOT use display:none here. Some mobile
+             * browsers (iOS Safari in particular) stop
+             * delivering frames to a video element that is
+             * display:none, which silently makes the
+             * outgoing WebRTC video track go black even
+             * though the connection reports as "connected"
+             * / "live". Shrinking it to an off-screen 1x1
+             * element keeps frames flowing.
              */
 
-            video.style.display =
-              "none";
+            video.classList.add(
+              "tiny-offscreen"
+            );
 
 
             /*
@@ -1852,6 +2083,198 @@ async function setupCamera() {
       (
         error.message ||
         "Unable to access camera"
+      )
+    );
+
+  }
+
+}
+
+
+
+/*
+================================================================
+OPEN CAMERA STREAM (front/back aware)
+================================================================
+*/
+
+async function openCameraStream(facingMode) {
+
+  return navigator.mediaDevices
+    .getUserMedia({
+
+      video: {
+
+        facingMode: {
+          ideal: facingMode
+        },
+
+        width: {
+          ideal: 1280
+        },
+
+        height: {
+          ideal: 720
+        }
+
+      },
+
+      audio: false
+
+    });
+
+}
+
+
+
+/*
+================================================================
+SWITCH CAMERA (front / back)
+================================================================
+*/
+
+async function switchCamera() {
+
+  const nextFacingMode =
+    currentFacingMode === "environment"
+      ? "user"
+      : "environment";
+
+
+  log(
+    "Switching camera..."
+  );
+
+
+  try {
+
+    const newStream =
+      await openCameraStream(
+        nextFacingMode
+      );
+
+
+    const newTrack =
+      newStream.getVideoTracks()[0];
+
+
+    if (!newTrack) {
+
+      log(
+        "Could not get a new camera track."
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * If we're already streaming to a viewer,
+     * swap the outgoing track in place - this
+     * avoids renegotiating/restarting the call.
+     */
+
+    if (
+
+      currentCall &&
+
+      currentCall.peerConnection
+
+    ) {
+
+      const senders =
+        currentCall.peerConnection.getSenders();
+
+
+      const videoSender =
+        senders.find(function(sender) {
+
+          return (
+
+            sender.track &&
+
+            sender.track.kind === "video"
+
+          );
+
+        });
+
+
+      if (videoSender) {
+
+        await videoSender.replaceTrack(
+          newTrack
+        );
+
+        console.log(
+          "Replaced outgoing video track."
+        );
+
+      }
+
+    }
+
+
+    /*
+     * Stop the old video track(s) and swap the
+     * local stream reference over to the new one,
+     * keeping any non-video tracks (there are none
+     * here since audio is disabled, but this stays
+     * generic).
+     */
+
+    if (cameraStream) {
+
+      cameraStream
+        .getVideoTracks()
+        .forEach(function(track) {
+
+          track.stop();
+
+        });
+
+    }
+
+
+    cameraStream = newStream;
+
+
+    currentFacingMode = nextFacingMode;
+
+
+    const video =
+      document.getElementById(
+        "scanner-video"
+      );
+
+
+    video.srcObject = cameraStream;
+
+
+    log(
+      "Switched to " +
+      (
+        nextFacingMode === "environment"
+          ? "back"
+          : "front"
+      ) +
+      " camera. LIVE STREAMING TO VIEWER"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Switch camera error:",
+      error
+    );
+
+
+    log(
+      "Could not switch camera: " +
+      (
+        error.message ||
+        "Unknown error"
       )
     );
 
@@ -2039,6 +2462,9 @@ function connectToViewer(
       log(
         "LIVE STREAMING TO VIEWER"
       );
+
+
+      show("camera-controls");
 
 
 
